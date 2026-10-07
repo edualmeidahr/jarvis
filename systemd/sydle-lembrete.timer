@@ -1,0 +1,10 @@
+[Unit]
+Description=Confere a cada minuto se tem reunião chegando (dias úteis, 7h às 20h)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 07..20:*:00
+# o padrão do systemd é juntar disparos em até 1 min; aqui o minuto importa
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

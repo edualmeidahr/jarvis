@@ -1,0 +1,15 @@
+[Unit]
+Description=Jarvis — fica ouvindo "Ei Jarvis" (escuta.py)
+After=graphical-session.target pipewire.service
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/share/jarvis/venv/bin/python %h/.claude/bin/escuta.py
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=on-failure
+RestartSec=5
+# o processo principal só ouve; Whisper e Claude rodam nos filhos, por pedido
+Nice=5
+
+[Install]
+WantedBy=graphical-session.target

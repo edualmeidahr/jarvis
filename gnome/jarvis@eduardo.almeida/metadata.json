@@ -1,0 +1,7 @@
+{
+  "uuid": "jarvis@eduardo.almeida",
+  "name": "Jarvis",
+  "description": "Ponto na barra com o estado do Jarvis (ouvindo, pensando, falando) e um menu com a próxima reunião, o que está tocando e os lembretes.",
+  "shell-version": ["50"],
+  "version": 1
+}

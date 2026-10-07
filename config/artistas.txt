@@ -1,0 +1,27 @@
+# Artistas que você ouve. Entram no vocabulário do Whisper e corrigem nomes mal transcritos
+# ("Bruno e Manon" → "Bruno e Marrone"). O Jarvis acrescenta sozinho cada artista que toca.
+# Pode editar à mão: um por linha.
+Bruno e Marrone
+AC/DC
+Metallica
+Queen
+Vintage Culture
+Dubdogz
+MEDUZA
+Alok
+R.E.M.
+Rooftime
+Sylarz
+VIRASCO
+Rionegro & Solimões
+Bruno & Marrone
+Teodoro & Sampaio
+Matuê
+BNYX®
+Azul Wynter
+Bryan Yepes
+System Of A Down
+Giorgi F
+Yemil
+NAZETH
+Rik

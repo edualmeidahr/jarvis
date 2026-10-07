@@ -1,0 +1,28 @@
+# Como a voz deve FALAR cada palavra. Só o áudio muda: a notificação escrita
+# continua com a palavra original.
+#
+#   palavra = como soa em português
+#
+# Vale para a palavra inteira, sem diferença de maiúscula e minúscula.
+# Expressão de várias palavras funciona (code reviewer = côud riviuer).
+# Para ouvir tudo:  ~/.claude/bin/falar.py --teste-dicionario
+#
+# Validadas por você em 28/09:
+daily = dêilí
+review = riviu
+reviews = rivius
+
+# Palpites, ainda não ouvidos. Corrija à vontade:
+code reviewer = côud riviuer
+tester = téster
+MR = eme érre
+MRs = eme érres
+thread = tréd
+threads = tréds
+GitLab = guít léb
+SYBOX = sái bóx
+Meet = mít
+checkin = tchéquin
+KR = cá érre
+growth = grôuf
+sharing = xérin

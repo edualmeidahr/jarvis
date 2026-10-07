@@ -1,0 +1,10 @@
+/* o ponto: cinza parado, azul ouvindo, âmbar pensando, verde falando */
+.jarvis-ponto { width: 10px; height: 10px; border-radius: 5px; margin: 0 2px; }
+.jarvis-parado   { background-color: #9aa0a6; }
+.jarvis-ouvindo  { background-color: #4c9aff; }
+.jarvis-pensando { background-color: #f2b33d; }
+.jarvis-falando  { background-color: #3ccf74; }
+/* escuta desligada: só o contorno, o Insert continua funcionando */
+.jarvis-desligado { background-color: transparent; border: 1.5px solid #9aa0a6; }
+.jarvis-titulo { font-weight: bold; }
+.jarvis-fraco  { color: #9aa0a6; }

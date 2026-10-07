@@ -1,0 +1,9 @@
+[Unit]
+Description=Lembrete 15 minutos antes de cada reunião
+
+[Service]
+Type=oneshot
+ExecStart=%h/.claude/bin/lembrete.py
+# o botão "Entrar na chamada" é um processo filho que espera o seu clique.
+# Sem isto o systemd mata ele junto com o serviço e o botão não faz nada.
+KillMode=process

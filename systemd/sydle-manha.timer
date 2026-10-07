@@ -1,0 +1,10 @@
+[Unit]
+Description=Rotina da manhã nos dias úteis
+
+[Timer]
+OnCalendar=Mon..Fri 07:00
+# máquina desligada às 7h: roda assim que você logar
+Persistent=true
+
+[Install]
+WantedBy=timers.target

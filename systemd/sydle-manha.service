@@ -1,0 +1,11 @@
+[Unit]
+Description=Rotina da manhã: rola tarefas, busca MRs e reviews no GitLab, redesenha o Painel.md
+# até 6 tentativas em 15 min, se a rede ou o chaveiro ainda não estiverem prontos
+StartLimitIntervalSec=900
+StartLimitBurst=6
+
+[Service]
+Type=oneshot
+ExecStart=%h/.claude/bin/manha.sh
+Restart=on-failure
+RestartSec=60

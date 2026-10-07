@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.bak
+*.tmp
+# configuração da máquina: dados da empresa, nunca sobe
+config/local.env
+local.env
+# chave privada da extensão do Chrome (o ID vem da chave pública no manifest)
+*.pem

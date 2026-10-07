@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Jarvis Música",
+  "version": "1.1",
+  "description": "Deixa o Jarvis (assistente de voz local) controlar o YouTube Music e ler a página aberta quando você pede.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApCbhfQek1QrFwZ8gr+Mxr9XGkYYNcsEZ12l1EAkR1mO8iolxsNHQ+dQmrRuccE2W+hsyLJ4pgkiMZxHL7N1aPeqaJEA0MhP6uwBigbFBn2b0ooh1+7U35GAyVnD+0CihiaAXtlzBac0bZNK1nH0E64EcxyBmBAcypkYr2OrLLqerjDRQsTZDKBBq3VDwuciH1wZCN8PyjfHBVrad3CJhRz6ZpcJzYP+HsCeg9G4B+/goutCjzhpf9/xijNL9B4qI19S5jliwG1JnnfvcJIiKv7k7algzx9p4krGdZSEvQlxlZio5sEa31O1AKzDPbYY1z4cr6EmkK18u+ZRTit4y5QIDAQAB",
+  "background": {
+    "service_worker": "fundo.js"
+  },
+  "permissions": [
+    "nativeMessaging",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://music.youtube.com/*",
+    "http://*/*",
+    "https://*/*"
+  ]
+}
