@@ -494,6 +494,23 @@ def _volume_atual(saida="@DEFAULT_AUDIO_SINK@"):
     return round(float(m[1]) * 100) if m else None
 
 
+def _registrar_volume(pedido, v):
+    """Diagnóstico: o volume que o Jarvis pôs e o que o GNOME (protocolo do PulseAudio) mostra.
+    Um dia ficaram diferentes e não deu para reproduzir no alto-falante; suspeita: fone Bluetooth."""
+    try:
+        saida = subprocess.run(["wpctl", "inspect", "@DEFAULT_AUDIO_SINK@"], capture_output=True, text=True,
+                               timeout=3).stdout
+        nome = (re.search(r'node\.description = "([^"]+)"', saida) or [None, "?"])[1]
+        gnome = subprocess.run(["pactl", "get-sink-volume", "@DEFAULT_SINK@"], capture_output=True, text=True,
+                               timeout=3).stdout
+        gnome = (re.search(r"(\d+)%", gnome) or [None, "?"])[1]
+        caminho = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "voz", "volume.log")
+        with open(caminho, "a") as f:
+            f.write(f"{time.strftime('%F %T')} pedido={pedido} jarvis={v}% gnome={gnome}% saida={nome}\n")
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
 def volume(quanto):
     """mais|menos|muito mais|muito menos|maximo|minimo|metade|mudo|N.
     N até 10 é a escala da Alexa (volume 5 = 50%); acima disso, porcentagem."""
@@ -512,6 +529,7 @@ def volume(quanto):
     subprocess.run(["wpctl", "set-mute", saida, "0"], check=False)
     subprocess.run(["wpctl", "set-volume", "-l", "1.0", saida, passo], check=False)
     v = _volume_atual()
+    _registrar_volume(quanto, v)
     return f"Volume em {v} por cento." if v is not None else "Pronto."
 
 

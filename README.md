@@ -64,4 +64,5 @@ No fim, o `install.sh` lista o que precisa ser feito à mão: carregar a extens�
 - `$XDG_RUNTIME_DIR/voz/voz.log`: o que o Whisper ouviu.
 - `$XDG_RUNTIME_DIR/voz/escuta.log`: quando acordou, com qual nota e por que não ouviu.
 - `gnome-extensions info jarvis@eduardo.almeida`: erro da extensão da barra.
+- `$XDG_RUNTIME_DIR/voz/volume.log`: cada mudança de volume, com o valor do Jarvis e o que o GNOME mostra.
 - Som do Jarvis ou do Chrome baixo demais: `wpctl status`, depois `wpctl set-volume <id> 1.0`.
