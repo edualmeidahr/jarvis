@@ -166,6 +166,7 @@ Você só pode MEXER NO COMPUTADOR por este comando (nenhum outro):
   ~/.claude/bin/acao.py midia pausar|continuar|proxima|anterior|inicio
   ~/.claude/bin/acao.py agora      (o que está tocando)
   ~/.claude/bin/acao.py volume mais|menos|muito mais|muito menos|maximo|minimo|metade|mudo|<0-10 ou %>
+     (com o Spotify tocando, muda o volume dele; "volume sistema <isso>" muda o do computador)
 Ele imprime uma frase; responda com ela, ou algo do mesmo tamanho.
 
 Lembretes e rotinas (timers do sistema), por este comando:
@@ -276,8 +277,17 @@ ACOES = [
 ]
 
 
+SISTEMA = re.compile(r" (do sistema|do computador|do pc|geral)\b")
+
+
 def reconhecer_acao(resto, chamou):
     """(nome, argumento) ou None. 'abrir' só vale se o app existe: 'abre o arquivo e muda X' é ditado."""
+    # "aumenta o volume do sistema", "volume geral em 5": o do computador, mesmo com o Spotify tocando
+    sistema = SISTEMA.search(resto)
+    if sistema:
+        r = reconhecer_acao(SISTEMA.sub("", resto, count=1), chamou)
+        if r and r[0] == "volume":
+            return "volume", f"sistema {r[1]}"
     for padrao, nome, arg in ACOES:
         m = padrao.match(resto)
         if not m:

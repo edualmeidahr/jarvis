@@ -9,6 +9,7 @@
     acao.py midia pausar|continuar|proxima|anterior|inicio
     acao.py agora                   o que está tocando (ou pausado), e onde
     acao.py volume mais|menos|muito mais|muito menos|maximo|minimo|metade|mudo|<0-10 ou %>
+                                    (com o Spotify tocando, o dele; "volume sistema ..." força o do computador)
     acao.py apps                    lista o que o "abrir" entende
 
 Cada ação imprime uma frase curta, para ser falada. Sai com 1 se não entendeu.
@@ -632,16 +633,57 @@ def _registrar_volume(pedido, v):
         pass
 
 
+PASSOS_VOLUME = {"mais": +10, "menos": -10, "muito mais": +25, "muito menos": -25}
+FIXOS_VOLUME = {"maximo": 100, "minimo": 10, "metade": 50}
+
+
+def _spotify_tocando():
+    """O player do Spotify (spotifyd) está em play? Pelo MPRIS, sem esperar a extensão."""
+    return any(".spotifyd." in p and _estado(p)["status"] == "Playing" for p in players())
+
+
+def volume_spotify(quanto):
+    """O volume do próprio player do Spotify (Web API), sem mexer no do sistema. O stream dele no
+    PipeWire fica sempre em 100%: é esse que o ducking abaixa e devolve. None: não deu."""
+    try:
+        if quanto in PASSOS_VOLUME:
+            atual = (spotify.api("GET", "/me/player").get("device") or {}).get("volume_percent")
+            if atual is None:
+                return None
+            alvo = atual + PASSOS_VOLUME[quanto]
+        elif quanto in FIXOS_VOLUME:
+            alvo = FIXOS_VOLUME[quanto]
+        elif re.fullmatch(r"\d{1,3}", quanto or ""):
+            n = int(quanto)
+            alvo = n * 10 if n <= 10 else n
+        else:
+            return None
+        alvo = max(0, min(100, alvo))
+        spotify.api("PUT", "/me/player/volume", params={"volume_percent": alvo, "device_id": spotify.dispositivo()})
+    except spotify.SemSpotify:
+        return None
+    _registrar_volume(f"spotify {quanto}", alvo)
+    return f"Volume do Spotify em {alvo} por cento."
+
+
 def volume(quanto):
-    """mais|menos|muito mais|muito menos|maximo|minimo|metade|mudo|N.
-    N até 10 é a escala da Alexa (volume 5 = 50%); acima disso, porcentagem."""
+    """mais|menos|muito mais|muito menos|maximo|minimo|metade|mudo|N, e "sistema <isso>".
+    N até 10 é a escala da Alexa (volume 5 = 50%); acima disso, porcentagem.
+    Com o Spotify tocando, mexe no volume dele; "sistema ..." (volume do sistema, volume geral)
+    mexe no do computador. Mudo é sempre do computador."""
+    sistema = quanto.startswith("sistema ")
+    quanto = quanto.removeprefix("sistema ")
+    if not sistema and quanto != "mudo" and _spotify_tocando():
+        frase = volume_spotify(quanto)
+        if frase:
+            return frase
     saida = "@DEFAULT_AUDIO_SINK@"
     if quanto == "mudo":
         subprocess.run(["wpctl", "set-mute", saida, "toggle"], check=False)
         mudo = "MUTED" in subprocess.run(["wpctl", "get-volume", saida], capture_output=True, text=True).stdout
         return "Som desligado." if mudo else "Som de volta."
-    passo = {"mais": "10%+", "menos": "10%-", "muito mais": "25%+", "muito menos": "25%-",
-             "maximo": "100%", "minimo": "10%", "metade": "50%"}.get(quanto)
+    passo = ({k: f"{abs(v)}%{'+' if v > 0 else '-'}" for k, v in PASSOS_VOLUME.items()}
+             | {k: f"{v}%" for k, v in FIXOS_VOLUME.items()}).get(quanto)
     if not passo:
         if not re.fullmatch(r"\d{1,3}", quanto or ""):
             return None

@@ -264,3 +264,8 @@ Jarvis, Entra no Spotify e toca uma playlist de rock.	acao tocar playlist de roc
 Jarvis, Tocar Queen, Spotify.	acao tocar queen no spotify
 Toca Highway to Hell no Spotify.	acao tocar highway to hell no spotify
 Jarvis, Pausa o Spotify.	acao midia pausar
+# --- Volume do sistema com o Spotify tocando (08/10)
+Jarvis, aumenta o volume do sistema.	acao volume sistema mais
+Jarvis, volume geral em 5.	acao volume sistema 5
+Jarvis, abaixa o volume do computador.	acao volume sistema menos
+Jarvis, Volume do sistema no máximo.	acao volume sistema maximo
