@@ -9,7 +9,8 @@ ConditionPathExists=!%h/.config/jarvis/escuta-desligada
 [Service]
 ExecStart=%h/.local/share/jarvis/venv/bin/python %h/.claude/bin/escuta.py
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
-Restart=on-failure
+# sempre: sair "com sucesso" também é parar de ouvir. O botão usa stop, que não reinicia
+Restart=always
 RestartSec=5
 # o processo principal só ouve; Whisper e Claude rodam nos filhos, por pedido
 Nice=5

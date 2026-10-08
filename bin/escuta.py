@@ -22,6 +22,7 @@ import importlib.util
 import os
 import subprocess
 import sys
+import select
 import threading
 import time
 import wave
@@ -45,6 +46,8 @@ ESPERA_FALA_S = 6.0          # acordou e ninguém falou: desiste
 TENTATIVAS = 2               # falou só "Ei Jarvis" de novo (ou nada): ouve mais uma vez
 MAX_PEDIDO_S = 15.0
 CONTINUACAO_S = 5.0
+SEM_SOM_S = 5.0              # o microfone manda 16 mil amostras por segundo: 5 s sem nada = travou
+VOZ_LIMITE_S = 150           # um pedido (transcrever + Claude + falar) não passa disso
 MIC_SEM_ECO = "jarvis_mic_sem_eco"  # serviço jarvis-aec: o microfone com a saída de som subtraída
 INTERROMPER_S = 0.4          # você fala por isso enquanto ele fala: ele se cala e te ouve          # depois de uma resposta falada, ouve isso sem precisar de "Ei Jarvis"
 
@@ -120,11 +123,35 @@ class Escuta:
         return subprocess.Popen(["pw-record", "--rate", str(TAXA), "--channels", "1", "--format", "s16", *alvo, "-"],
                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
-    def ler(self, mic):
-        dados = mic.stdout.read(BLOCO * 2)
-        if len(dados) < BLOCO * 2:
-            raise EOFError
-        return np.frombuffer(dados, np.int16)
+    def _ler_bytes(self, n):
+        """n bytes do microfone, ou None se ele fechou OU ficou SEM_SOM_S sem mandar nada.
+        O segundo caso é o pior: o microfone some, a gravação não fecha, e a leitura esperava
+        para sempre — a escuta ficava surda sem nenhum registro."""
+        fd = self.mic.stdout.fileno()
+        dados = b""
+        while len(dados) < n:
+            pronto, _, _ = select.select([fd], [], [], SEM_SOM_S)
+            if not pronto:
+                return None
+            pedaco = os.read(fd, n - len(dados))
+            if not pedaco:
+                return None
+            dados += pedaco
+        return dados
+
+    def ler(self, mic=None):
+        """Um bloco do microfone. Se a gravação fechar (o microfone sem eco se reconecta quando a
+        saída de som muda), reabre e segue. Antes, a escuta terminava "com sucesso" e o serviço
+        não voltava: ela ficava surda sem nenhum aviso."""
+        for tentativa in range(5):
+            dados = self._ler_bytes(BLOCO * 2)
+            if dados is not None:
+                return np.frombuffer(dados, np.int16)
+            log(f"microfone parou (pw-record: {self.mic.poll()}); reabrindo")
+            self.mic.terminate()
+            time.sleep(1 + tentativa)
+            self.mic = self.microfone()
+        raise RuntimeError("o microfone fechou 5 vezes seguidas")
 
     def ouvir_pedido(self, mic, espera_s=ESPERA_FALA_S):
         """Grava do microfone até você parar de falar. Devolve as amostras, ou None se não falou."""
@@ -162,7 +189,16 @@ class Escuta:
         def rodar():
             try:
                 gravar_wav(amostras, wav)
-                r = subprocess.run([os.path.join(BIN, "voz.sh"), "--acordado", wav], check=False)
+                proc = subprocess.Popen([os.path.join(BIN, "voz.sh"), "--acordado", wav], start_new_session=True)
+                try:
+                    proc.wait(timeout=VOZ_LIMITE_S)
+                except subprocess.TimeoutExpired:
+                    # pedido travado (clipboard com a tela bloqueada, Claude sem rede…): sem isto a
+                    # escuta ficava "ocupada" para sempre e parava de ouvir
+                    os.killpg(proc.pid, 15)
+                    proc.wait()
+                    log(f"voz.sh passou de {VOZ_LIMITE_S} s: encerrado")
+                r = proc
                 log(f"voz.sh terminou com {r.returncode}")
                 interrompido = os.path.exists(INTERROMPIDO) and os.path.getmtime(INTERROMPIDO) > inicio
                 if r.returncode == 20 and continuacao:
@@ -213,7 +249,8 @@ class Escuta:
         self.entregar(amostras, tentativa, continuacao)
 
     def rodar(self):
-        mic = self.microfone()
+        self.mic = self.microfone()
+        mic = self.mic
         acao.abaixar_musica.recuperar()  # se o serviço caiu com a música abaixada, devolve
         log("ouvindo \"Ei Jarvis\"")
         estado.marcar("parado")
@@ -273,10 +310,15 @@ class Escuta:
                     log(f"acordei (nota {nota:.2f})")
                     self.acordar(mic)
                     self.modelo.reset()  # o buffer interno ainda tem o "Jarvis" de agora há pouco
-        except (EOFError, KeyboardInterrupt):
+        except KeyboardInterrupt:
             pass
+        except Exception:
+            # qualquer erro fica no log e o processo sai com falha: o systemd reinicia em 5 s
+            import traceback
+            log("erro, reiniciando:\n" + traceback.format_exc())
+            raise SystemExit(1)
         finally:
-            mic.terminate()
+            self.mic.terminate()
 
 
 if __name__ == "__main__":
