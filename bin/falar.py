@@ -36,7 +36,7 @@ PIPER = os.path.expanduser("~/.local/share/piper/piper/piper")
 VOZ = os.path.expanduser("~/.local/share/piper/vozes/pt_BR-faber-medium.onnx")
 # Ajustados de ouvido em 07/10 (a "Seis C, mais rápida"): mais firme, grave e encorpada.
 # A versão de 29/09 era 0.80 / 0.12 / 0.9 / 0.7, sem o timbre.py
-VELOCIDADE = 0.80  # length_scale: menor é mais rápido; 1.0 é o padrão do Piper
+VELOCIDADE = 0.76  # length_scale: menor é mais rápido; 1.0 é o padrão do Piper (0.80 até 08/10)
 PAUSA = "0.15"     # sentence_silence: segundos entre frases
 RITMO = "0.7"      # noise_w: variação da duração de cada som; mais baixo é mais firme (padrão 0.8)
 TIMBRE = "0.55"    # noise_scale: variação do timbre; mais baixo é mais uniforme (padrão 0.667)
