@@ -33,9 +33,14 @@ mkdir -p "$EST"
 aviso() { python3 "$HOME/.claude/bin/bolha.py" "$@" 2>/dev/null; }
 
 ACORDADO=""
+TEXTO_PRONTO=""   # a escuta já transcreveu (Parakeet): pula o Whisper
 if [ "${1:-}" = "--acordado" ]; then
   ACORDADO=1
   WAV="$2"
+  if [ "${3:-}" = "--texto" ]; then
+    TEXTO_PRONTO=1
+    texto="${4:-}"
+  fi
 fi
 
 # --- cancelar ---
@@ -110,7 +115,9 @@ ARTISTAS=$(grep -v '^#' "$HOME/.config/jarvis/artistas.txt" 2>/dev/null | tail -
 JANELA=()
 segundos=$(python3 -c 'import sys,wave; w=wave.open(sys.argv[1]); print(int(w.getnframes()/w.getframerate()))' "$WAV" 2>/dev/null || echo 99)
 [ "$segundos" -le 9 ] && JANELA=(-ac 512)
-texto=$("$BIN" -m "$MODELO" -f "$WAV" -l "$IDIOMA" -t "$NUCLEOS" -nt -np "${JANELA[@]}" --prompt "$VOCABULARIO" 2>>"$LOG")
+if [ -z "$TEXTO_PRONTO" ]; then
+  texto=$("$BIN" -m "$MODELO" -f "$WAV" -l "$IDIOMA" -t "$NUCLEOS" -nt -np "${JANELA[@]}" --prompt "$VOCABULARIO" 2>>"$LOG")
+fi
 
 # whisper marca silêncio e ruído entre colchetes ou parênteses — não é fala
 texto=$(printf '%s' "$texto" \

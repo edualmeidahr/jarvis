@@ -26,6 +26,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 
 # o WirePlumber memoriza o volume de cada tipo de stream e aplica no próximo. Um som do Jarvis
 # que terminou abaixado (ducking) deixava todos os seguintes mudos — aconteceu duas vezes.
@@ -237,6 +238,22 @@ def _sintetizar(trecho, pasta, n, primeira):
     return pronto
 
 
+LATENCIA = os.path.join(os.environ.get("XDG_RUNTIME_DIR", tempfile.gettempdir()), "voz", "latencia.log")
+
+
+def _medir(frase):
+    """Do fim da sua fala (JARVIS_FIM_FALA, marcado pela escuta) até o primeiro som da resposta.
+    Uma linha por pedido em voz/latencia.log: é a régua para saber se uma mudança deixou ele mais ágil."""
+    fim = os.environ.pop("JARVIS_FIM_FALA", None)  # só a primeira fala do pedido conta
+    if not fim:
+        return
+    try:
+        with open(LATENCIA, "a") as f:
+            f.write(f"{dt.datetime.now():%F %T} {time.time() - float(fim):.2f} s  {frase[:50]}\n")
+    except (OSError, ValueError):
+        pass
+
+
 def tocar(texto):
     """Fala o texto frase a frase (ver tocar_fluxo)."""
     return tocar_fluxo(frases(texto))
@@ -280,6 +297,7 @@ def tocar_fluxo(partes):
                     estado.marcar("falando", frase)
                     # o pid fica num arquivo enquanto fala: a escuta corta a fala se você interromper
                     tocador = subprocess.Popen(["pw-play", *SEM_VOLUME_SALVO, caminho], stderr=subprocess.DEVNULL)
+                    _medir(frase)
                     with open(FALANDO, "w") as f:
                         f.write(str(tocador.pid))
                     if tocador.wait() < 0:  # morto por sinal = interrompido: o resto não toca

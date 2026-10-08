@@ -905,19 +905,28 @@ class MusicaDeFundo:
             self.fio.join(4)
 
 
-def frases_do_claude(pedido, guardar):
+ESPERA_S = 1.2  # o Claude passou disso sem a primeira frase: "Um momento." (frases_do_claude)
+
+
+def frases_do_claude(pedido, guardar, espera=None):
     """As frases do Claude conforme ele escreve (gerador), para a fala começar pela primeira.
     pedido: o texto, ou uma função que o monta (roda na thread, sem atrasar quem fala).
-    guardar(texto inteiro) recebe a resposta no fim."""
+    guardar(texto inteiro) recebe a resposta no fim.
+    espera: frase dita se a primeira do Claude passar de ESPERA_S ("Um momento."): silêncio longo
+    parece que ele não ouviu; resposta rápida dispensa a frase."""
     fila, buf = queue.Queue(), [""]
 
     def chegou(pedaco):
         buf[0] += pedaco
         while True:
-            m = re.search(r"[.!?…](\s+)", buf[0])
+            # fim de frase, ou quebra de linha (o cérebro manda uma entre o texto de antes e o de
+            # depois de uma ferramenta: "Vou ver." + "Sua reunião…" não viram uma frase só)
+            m = re.search(r"([.!?…])\s+|\n\s*", buf[0])
             if not m:
                 break
-            fila.put(buf[0][:m.start() + 1].strip())
+            frase = buf[0][:m.start() + (1 if m.group(1) else 0)].strip()
+            if frase:
+                fila.put(frase)
             buf[0] = buf[0][m.end():]
 
     def rodar():
@@ -933,9 +942,17 @@ def frases_do_claude(pedido, guardar):
     threading.Thread(target=rodar, daemon=True).start()
 
     def entregar():
-        curta = ""
+        curta, primeira = "", True
         while True:
-            frase = fila.get()
+            if primeira and espera:
+                try:
+                    frase = fila.get(timeout=ESPERA_S)
+                except queue.Empty:
+                    yield espera
+                    frase = fila.get()
+            else:
+                frase = fila.get()
+            primeira = False
             if frase is None:
                 break
             curta = f"{curta} {frase}".strip()
@@ -1304,16 +1321,56 @@ def main():
         notificar(texto, resposta)
         falar.tocar(resposta)
         return 0
+    if CITA_PAGINA.search(normalizar(valor)) or RESUMO_SOZINHO.match(normalizar(valor)):
+        return responder_pagina(texto, valor)
+    try:
+        os.remove(acao.MARCA_SO_MIDIA)
+    except OSError:
+        pass
+    return responder_em_fluxo(texto, valor)
+
+
+def responder_em_fluxo(texto, valor):
+    """A resposta do cérebro falada conforme ele escreve: a primeira frase toca enquanto ele
+    escreve o resto. Antes a fala esperava a resposta inteira (1 a 2 s a mais)."""
+    inteiro = {}
+    pedido = lambda: f"ESTADO DE AGORA (dado, não é pergunta):{contexto(dt.datetime.now().astimezone())}\n\nPERGUNTA: {valor}"
+    do_claude = frases_do_claude(pedido, lambda t: inteiro.update(texto=t),
+                                 espera=uma("Um momento.", "Um instante.", "Deixa eu ver."))
+
+    def frases():
+        for frase in do_claude:
+            # o Claude só pausou, pulou ou mexeu no volume: como no comando local, sem voz
+            if os.path.exists(acao.MARCA_SO_MIDIA):
+                continue
+            yield frase
+
+    tocar_fluxo(frases())
+    if interrompido():  # você falou por cima: a resposta fica pela metade, de propósito
+        return 0
+    resposta = inteiro.get("texto")
+    if not resposta:  # sem cérebro: o jeito antigo, um `claude` por pedido
+        resposta = rodar_claude(comando_claude(pergunta=valor, sistema_extra=contexto(dt.datetime.now().astimezone())),
+                                "Demorei demais para responder. Tenta de novo?") or "Não consegui falar com o Claude agora."
+        if not os.path.exists(acao.MARCA_SO_MIDIA):
+            falar.tocar(resposta)
+    if os.path.exists(acao.MARCA_SO_MIDIA):
+        bolha.mostrar(bolha.aspas(texto, 60), resposta)
+        return 0
+    notificar(texto, resposta)
+    return 0
+
+
+def responder_pagina(texto, valor):
+    """Página no prompt vai num `claude` avulso, sem ferramentas: sem fluxo."""
     espera = threading.Thread(target=falar.tocar, args=("Um momento.",))
     espera.start()  # fala enquanto o Claude pensa, e não depois
-    pagina = None
-    if CITA_PAGINA.search(normalizar(valor)) or RESUMO_SOZINHO.match(normalizar(valor)):
-        pagina, erro = ler_pagina()
-        if erro:
-            espera.join()
-            notificar(texto, f"Não consegui ler a página: {erro}")
-            falar.tocar(f"Não consegui ler a página: {erro}")
-            return 0
+    pagina, erro = ler_pagina()
+    if erro:
+        espera.join()
+        notificar(texto, f"Não consegui ler a página: {erro}")
+        falar.tocar(f"Não consegui ler a página: {erro}")
+        return 0
     try:
         os.remove(acao.MARCA_SO_MIDIA)
     except OSError:

@@ -68,6 +68,7 @@ class Sessao:
         self.proc.stdin.write(json.dumps({"type": "user", "message": {"role": "user", "content": texto}}) + "\n")
         self.proc.stdin.flush()
         resultado = {}
+        escreveu = [False]
 
         def ler():
             for linha in self.proc.stdout:
@@ -77,9 +78,16 @@ class Sessao:
                     continue
                 if ao_escrever and ev.get("type") == "stream_event":
                     e = ev.get("event") or {}
+                    pedaco = None
                     if e.get("type") == "content_block_delta" and (e.get("delta") or {}).get("type") == "text_delta":
+                        pedaco = e["delta"]["text"]
+                    elif (e.get("type") == "content_block_start" and escreveu[0]
+                          and (e.get("content_block") or {}).get("type") == "text"):
+                        pedaco = "\n"  # texto novo depois de uma ferramenta: não emenda com o de antes
+                    if pedaco:
+                        escreveu[0] = True
                         try:
-                            ao_escrever(e["delta"]["text"])
+                            ao_escrever(pedaco)
                         except Exception:
                             pass
                 if ev.get("type") == "result":

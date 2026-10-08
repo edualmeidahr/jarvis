@@ -20,6 +20,8 @@ Nada sai da máquina: detector, VAD e Whisper rodam local.
 """
 import importlib.util
 import os
+import re
+import shutil
 import subprocess
 import sys
 import select
@@ -53,6 +55,13 @@ MAX_CONTINUACOES = 2             # respostas emendadas sem "Ei Jarvis": depois d
 SEM_SOM_S = 5.0              # o microfone manda 16 mil amostras por segundo: 5 s sem nada = travou
 VOZ_LIMITE_S = 150           # um pedido (transcrever + Claude + falar) não passa disso
 MIC_SEM_ECO = "jarvis_mic_sem_eco"  # serviço jarvis-aec: o microfone com a saída de som subtraída
+# reconhecedor de fala dentro da escuta, já carregado: Parakeet v3 (sherpa-onnx). Medido em 08/10:
+# 0,4 a 1 s por pedido, contra 3 a 4 s do Whisper small (que também errava mais: "Conta 7 vezes 8").
+# JARVIS_STT=whisper volta ao caminho antigo (o voz.sh transcreve). O Insert segue com o Whisper
+STT = os.environ.get("JARVIS_STT", "parakeet")
+PARAKEET = os.path.expanduser("~/.local/share/jarvis/stt/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8")
+PEDIDOS = os.path.join(EST, "pedidos")  # os últimos áudios de pedido (RAM): para comparar reconhecedores
+GUARDAR_PEDIDOS = 30
 INTERROMPER_S = 0.4          # você fala por isso enquanto ele fala: ele se cala e te ouve          # depois de uma resposta falada, ouve isso sem precisar de "Ei Jarvis"
 
 # marcas trocadas com o jarvis.py e o falar.py
@@ -134,12 +143,33 @@ class Gravacao:
         self.proc.terminate()
 
 
+def carregar_stt():
+    """O Parakeet pronto para usar, ou None (sem o modelo ou JARVIS_STT=whisper: o voz.sh transcreve)."""
+    if STT != "parakeet" or not os.path.isdir(PARAKEET):
+        return None
+    try:
+        import sherpa_onnx
+        return sherpa_onnx.OfflineRecognizer.from_transducer(
+            encoder=f"{PARAKEET}/encoder.int8.onnx", decoder=f"{PARAKEET}/decoder.int8.onnx",
+            joiner=f"{PARAKEET}/joiner.int8.onnx", tokens=f"{PARAKEET}/tokens.txt",
+            num_threads=4, model_type="nemo_transducer")
+    except Exception as e:
+        log(f"Parakeet não carregou ({e}): sigo com o Whisper")
+        return None
+
+
+def ajustar_texto(texto):
+    """O jeito do Parakeet escrever, trazido para o que o jarvis.py espera."""
+    return re.sub(r"\bMr\.?(?=\s|$)", "MR", texto).strip()
+
+
 class Escuta:
     def __init__(self, teste=False):
         self.teste = teste
         self.modelo = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
         self.modelo_limpo = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
         self.vad = VAD()
+        self.stt, self.trava_stt = carregar_stt(), threading.Lock()
         self.ativos, self.trava = 0, threading.Lock()  # voz.sh rodando (pode haver dois: interrupção)
         self.surdo_ate = 0.0
         self.de_novo = 0                   # tentativa seguinte, quando a fala foi só o nome
@@ -234,20 +264,51 @@ class Escuta:
             if falou and silencio >= SILENCIO_FIM_S:
                 if espera_s == CONTINUACAO_S and fala_s < FALA_MINIMA_CONTINUACAO_S:
                     return None  # na continuação, um "hum" ou um ruído curto não vira pedido
+                self.fim_fala = time.time() - silencio
                 break
             if decorrido > MAX_PEDIDO_S:
+                self.fim_fala = time.time()
                 break
         return np.concatenate(blocos)
+
+    def transcrever(self, amostras):
+        """O texto do pedido pelo Parakeet, ou None se ele não está carregado (o voz.sh usa o Whisper)."""
+        if not self.stt:
+            return None
+        with self.trava_stt:
+            t = time.time()
+            fluxo = self.stt.create_stream()
+            fluxo.accept_waveform(TAXA, amostras.astype(np.float32) / 32768)
+            self.stt.decode_stream(fluxo)
+            texto = ajustar_texto(fluxo.result.text)
+        log(f"parakeet ({time.time() - t:.2f} s): {texto}")
+        return texto
+
+    def guardar_pedido(self, wav):
+        """Cópia do áudio para comparar reconhecedores depois. Fica na RAM e só os últimos."""
+        try:
+            os.makedirs(PEDIDOS, exist_ok=True)
+            shutil.copyfile(wav, os.path.join(PEDIDOS, os.path.basename(wav)))
+            for velho in sorted(os.listdir(PEDIDOS))[:-GUARDAR_PEDIDOS]:
+                os.remove(os.path.join(PEDIDOS, velho))
+        except OSError:
+            pass
 
     def entregar(self, amostras, tentativa, continuacao=False):
         """Roda o voz.sh em paralelo: o laço principal precisa continuar drenando o microfone."""
         wav = os.path.join(EST, f"acordado-{time.time_ns()}.wav")  # dois pedidos juntos não se pisam
         inicio = time.time()
+        # o falar.py mede daqui até o primeiro som da resposta (voz/latencia.log)
+        env = {**os.environ, "JARVIS_FIM_FALA": f"{getattr(self, 'fim_fala', inicio):.3f}"}
 
         def rodar():
             try:
                 gravar_wav(amostras, wav)
-                proc = subprocess.Popen([os.path.join(BIN, "voz.sh"), "--acordado", wav], start_new_session=True)
+                self.guardar_pedido(wav)
+                texto = self.transcrever(amostras)
+                pronto = [] if texto is None else ["--texto", texto]
+                proc = subprocess.Popen([os.path.join(BIN, "voz.sh"), "--acordado", wav, *pronto],
+                                        start_new_session=True, env=env)
                 try:
                     proc.wait(timeout=VOZ_LIMITE_S)
                 except subprocess.TimeoutExpired:
