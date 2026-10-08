@@ -4,6 +4,7 @@
 #   ./install.sh            tudo: links, Python, voz, Whisper, atalhos e serviços
 #   ./install.sh links      só os links (os lugares de sempre passam a apontar para cá)
 #   ./install.sh trabalho   também liga os timers do GitLab e da agenda (precisa do local.env)
+#   ./install.sh spotify    o player do Spotify (spotifyd) e o serviço dele (precisa de Premium)
 #
 # Nada aqui usa sudo. O que precisa de pacote do sistema fica listado no fim, para você.
 set -euo pipefail
@@ -15,6 +16,7 @@ WHISPER_DIR="$HOME/.local/share/whisper.cpp"
 MODELOS="$HOME/.local/share/whisper-models"
 GNOME_EXT="jarvis@eduardo.almeida"
 PIPER_VERSAO="2023.11.14-2"
+SPOTIFYD_VERSAO="v0.4.2"
 VOZ="pt_BR-faber-medium"
 FALTA=()
 
@@ -41,6 +43,7 @@ links() {
     ligar "$f" "$HOME/.config/jarvis/$(basename "$f")"
   done
   ligar "$REPO/config/pipewire" "$HOME/.config/jarvis/pipewire"
+  ligar "$REPO/config/spotifyd" "$HOME/.config/jarvis/spotifyd"
   # serviços são COPIADOS, não linkados: "systemctl disable" num serviço que é link apaga o
   # próprio arquivo (o botão do painel quebrou assim). Mudou algo em systemd/? Rode de novo.
   for f in "$REPO"/systemd/*; do
@@ -158,6 +161,27 @@ trabalho() {
   FALTA+=("configurar a agenda: python3 ~/.claude/bin/agenda.py --configurar")
 }
 
+spotify() {
+  passo "Spotify (spotifyd $SPOTIFYD_VERSAO, o dispositivo \"Jarvis\")"
+  local pasta="$DADOS/spotifyd" base="https://github.com/Spotifyd/spotifyd/releases/download/$SPOTIFYD_VERSAO"
+  if [ ! -x "$pasta/spotifyd" ]; then
+    local tmp
+    tmp=$(mktemp -d)
+    curl -sSL -o "$tmp/s.tar.gz" "$base/spotifyd-linux-x86_64-full.tar.gz"
+    curl -sSL -o "$tmp/s.sha512" "$base/spotifyd-linux-x86_64-full.sha512"
+    (cd "$tmp" && [ "$(sha512sum s.tar.gz | cut -d' ' -f1)" = "$(cut -d' ' -f1 s.sha512)" ]) \
+      || { echo "checksum do spotifyd não confere"; rm -rf "$tmp"; return 1; }
+    mkdir -p "$pasta"
+    tar xzf "$tmp/s.tar.gz" -C "$pasta"
+    rm -rf "$tmp"
+  fi
+  # login do player (uma vez): ele abre a página do Spotify e guarda em ~/.cache/spotifyd
+  [ -e "$HOME/.cache/spotifyd/oauth/credentials.json" ] ||
+    "$pasta/spotifyd" authenticate --cache-path "$HOME/.cache/spotifyd"
+  systemctl --user enable --now jarvis-spotifyd.service
+  FALTA+=("Spotify: criar um app em developer.spotify.com (redirect http://127.0.0.1:8899/callback), pôr o Client ID em JARVIS_SPOTIFY_CLIENT_ID e JARVIS_MUSICA=spotify no local.env, e rodar ~/.claude/bin/spotify.py configurar")
+}
+
 conferir_sistema() {
   for prog in wl-copy secret-tool pw-record notify-send gtk-launch claude; do
     command -v "$prog" >/dev/null || FALTA+=("instalar $prog")
@@ -174,6 +198,7 @@ resumo() {
 case "${1:-tudo}" in
   links) links ;;
   trabalho) links; trabalho; resumo ;;
+  spotify) links; spotify; resumo ;;
   tudo) links; python_venv; voz; whisper; gnome; servicos; conferir_sistema; resumo ;;
-  *) sed -n '2,8p' "$0"; exit 1 ;;
+  *) sed -n '2,9p' "$0"; exit 1 ;;
 esac

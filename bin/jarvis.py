@@ -159,7 +159,8 @@ responda por eles sem ler arquivo. Só leia arquivo se precisar de algo que não
 
 Você só pode MEXER NO COMPUTADOR por este comando (nenhum outro):
   ~/.claude/bin/acao.py abrir <app ou site>    (apps: ~/.claude/bin/acao.py apps)
-  ~/.claude/bin/acao.py tocar "<busca>"              (YouTube Music; música ou playlist)
+  ~/.claude/bin/acao.py tocar "<busca>"              (música, artista ou playlist; no Spotify, ou no YouTube Music sem ele)
+  ~/.claude/bin/acao.py tocar "<busca> no youtube music"   (só quando ele pedir o YouTube Music)
   ~/.claude/bin/acao.py tocar "<busca> no youtube"   (vídeo no YouTube)
   ~/.claude/bin/acao.py url <https://...>      (ex.: o link de um MR, tirado do gitlab.json)
   ~/.claude/bin/acao.py midia pausar|continuar|proxima|anterior|inicio
@@ -232,7 +233,7 @@ COMANDOS = [
 NUMEROS = {"zero": 0, "um": 1, "dois": 2, "tres": 3, "quatro": 4, "cinco": 5, "seis": 6, "sete": 7, "set": 7, "oito": 8,
            "nove": 9, "dez": 10, "vinte": 20, "trinta": 30, "quarenta": 40, "cinquenta": 50, "sessenta": 60,
            "setenta": 70, "oitenta": 80, "noventa": 90, "cem": 100}
-ONDE_TOCAR = r"youtube music|youtube musica|you tube music|yt music|youtube|you tube"
+ONDE_TOCAR = r"youtube music|youtube musica|you tube music|yt music|youtube|you tube|spotify|spotfy|spotifai|espotifai"
 VERBO_TOCAR = r"(toca|toque|tocar|doca|coloca|coloque|colocar|bota|bote|poe|ponha|reproduz|reproduza|play)"
 ACOES = [
     # "entra no youtube e toca X": o pedido já diz que é YouTube, vale mesmo sem "Jarvis"
@@ -244,13 +245,13 @@ ACOES = [
     (re.compile(r"^(abre|abra|abrir|abri|abriu|mostra|mostre|inicia|inicie|liga|ligue|executa|execute) (?P<arg>.+)$"), "abrir", True),
     # mídia, no estilo Alexa: frase curta sozinha, age no que está tocando
     (re.compile(r"^(pausa|pause|pausar|pauser|pausair|pauza|para|pare|parar|stop)"
-                r"( (a |o )?(musica|video|som|youtube music|youtube|you tube)| ai)?$"), "midia", "pausar"),
+                r"( (a |o )?(musica|video|som|youtube music|youtube|you tube|spotify)| ai)?$"), "midia", "pausar"),
     (re.compile(r"^(continua|continue|continuar|despausa|volta a tocar|solta o som|play|toca|retoma|retomar)"
                 r"( a musica| o video| tocando)?$"), "midia", "continuar"),
     (re.compile(r"^tocar$"), "midia", "continuar"),
     (re.compile(r"^(a )?(proxima|proximo|proxima musica|proximo video|proxima faixa|pula|pular|pula essa|"
                 r"pula a musica|passa|passa essa|passa a musica|avanca|skip|next)"
-                r"( (no |do )?(youtube music|youtube musica|youtube|you tube))?$"), "midia", "proxima"),
+                r"( (no |do )?(youtube music|youtube musica|youtube|you tube|spotify))?$"), "midia", "proxima"),
     (re.compile(r"^(a )?(anterior|volta|voltar|musica anterior|video anterior|volta a musica|volta uma)$"), "midia", "anterior"),
     (re.compile(r"^(do comeco|desde o comeco|reinicia|reinicia a musica|repete|repete essa|toca de novo)$"), "midia", "inicio"),
     (re.compile(r"^(o que (e que )?(esta|ta) tocando( agora)?|que musica e (essa|esta)( que (esta|ta) tocando)?|"
@@ -290,7 +291,8 @@ def reconhecer_acao(resto, chamou):
             # "toca em uma playlist", "toca é bruno", "toca alguma playlist": sem os artigos na frente
             valor = re.sub(r"^((em|e|o|a|uma|um|alguma|algum)\s+)+", "", valor)
             # "X, no YouTube, do Queen" e "Queen, YouTube": o serviço vai para o fim, com "no"
-            servico = re.search(r"\s(?:no |do |pelo )?(youtube music|youtube musica|youtube|you tube)(?=\s|$)", valor)
+            servico = re.search(r"\s(?:no |do |pelo )?(youtube music|youtube musica|youtube|you tube|spotify|spotfy|spotifai|"
+                                r"espotifai)(?=\s|$)", valor)
             if servico and not m.groupdict().get("onde"):
                 valor = (valor[:servico.start()] + valor[servico.end():]).strip()
                 valor = f"{valor} no {servico[1]}"

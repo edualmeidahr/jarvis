@@ -259,3 +259,8 @@ Jarvis, toca Queen	acao tocar queen
 # --- Erros do Whisper em números (08/10)
 Jarvis, Volumi Set,	acao volume 7
 Jarvis, Volumi 7.	acao volume 7
+Jarvis, Toca Bruno e Marrone no Spotify.	acao tocar bruno e marrone no spotify
+Jarvis, Entra no Spotify e toca uma playlist de rock.	acao tocar playlist de rock no spotify
+Jarvis, Tocar Queen, Spotify.	acao tocar queen no spotify
+Toca Highway to Hell no Spotify.	acao tocar highway to hell no spotify
+Jarvis, Pausa o Spotify.	acao midia pausar

@@ -2,7 +2,8 @@
 """As ações de sistema que o Jarvis pode fazer. Lista fechada, de propósito.
 
     acao.py abrir <app ou site>     "obsidian", "vs codium", "whatsapp", "gitlab"
-    acao.py tocar <busca>           no YouTube Music (música ou playlist), no app dele
+    acao.py tocar <busca>           no Spotify (JARVIS_MUSICA=spotify) ou no YouTube Music
+    acao.py tocar <busca> no youtube music   no YouTube Music, no app dele
     acao.py tocar <busca> no youtube    primeiro vídeo do YouTube, no app do YouTube
     acao.py url <https://...>       abre um endereço no navegador (só http/https)
     acao.py midia pausar|continuar|proxima|anterior|inicio
@@ -254,6 +255,10 @@ _spec_t = importlib.util.spec_from_file_location("trilha", os.path.join(os.path.
 trilha_mod = importlib.util.module_from_spec(_spec_t)
 _spec_t.loader.exec_module(trilha_mod)
 
+_spec_s = importlib.util.spec_from_file_location("spotify", os.path.join(os.path.dirname(os.path.realpath(__file__)), "spotify.py"))
+spotify = importlib.util.module_from_spec(_spec_s)
+_spec_s.loader.exec_module(spotify)
+
 _spec_m = importlib.util.spec_from_file_location("musica", os.path.join(os.path.dirname(os.path.abspath(__file__)), "musica.py"))
 musica = importlib.util.module_from_spec(_spec_m)
 _spec_m.loader.exec_module(musica)
@@ -325,11 +330,12 @@ def registrar_musica(artista="", playlist="", titulo=""):
 
 
 def sugestoes(n=3, menos=()):
-    """Os artistas e playlists que ele mais pede, mais recentes valendo um pouco mais."""
+    """Os artistas e playlists que ele mais pede, mais recentes valendo um pouco mais.
+    Faltou (histórico curto)? Completa com os artistas que o Spotify diz que ele mais ouve."""
     try:
         h = json.load(open(HISTORICO))
     except (OSError, ValueError):
-        return []
+        h = []
     pontos, nomes = {}, {}
     for i, r in enumerate(h):
         nome = r.get("playlist") and f"uma playlist de {r['playlist']}" or r.get("artista")
@@ -340,7 +346,43 @@ def sugestoes(n=3, menos=()):
             continue
         pontos[chave] = pontos.get(chave, 0) + 1 + i / max(1, len(h))  # peso extra para o recente
         nomes[chave] = nome
-    return [nomes[k] for k in sorted(pontos, key=pontos.get, reverse=True)[:n]]
+    saida = [nomes[k] for k in sorted(pontos, key=pontos.get, reverse=True)[:n]]
+    if len(saida) < n and spotify.ligado():
+        for nome in spotify.sugestoes():
+            chave = normalizar(nome)
+            if chave not in pontos and not any(normalizar(m) in chave or chave in normalizar(m) for m in menos if m):
+                saida.append(nome)
+            if len(saida) >= n:
+                break
+    return saida
+
+
+def tocar_spotify(busca):
+    """Toca pelo Spotify, no dispositivo Jarvis (o spotifyd). None: o Spotify não deu agora
+    (sem login, sem rede, sem o player), e quem chamou cai no YouTube Music."""
+    busca = corrigir_artista(busca)
+    playlist = bool(CARA_DE_PLAYLIST.search(busca))
+    termo = re.sub(r"\b(a |uma )?(playlist|playlists)( de| do| da)?\b", "", busca, flags=re.I).strip() or busca
+    try:
+        achado = spotify.escolher(termo, playlist)
+        if not achado:
+            return f"Não achei {busca} no Spotify."
+        pausar_o_que_toca()  # o que mais estiver tocando, para não tocarem dois juntos
+        ytm = musica_pela_extensao()  # o Chrome mostra ao MPRIS uma sessão só: o YouTube Music pela extensão
+        if ytm and ytm["status"] == "Playing":
+            musica.pedir({"acao": "pausar"})
+        spotify.tocar_achado(achado)
+    except spotify.SemSpotify:
+        return None
+    if achado["tipo"] == "playlist":
+        tema = re.sub(r"\b(musica|musicas|música|músicas)( de)?\b", "", termo, flags=re.I).strip() or termo
+        registrar_musica(playlist=achado["nome"] if achado.get("sua") else tema, titulo=achado["nome"])
+        return f"Tocando a playlist {curto(achado['nome'])}."
+    aprender_artistas(achado["artista"])
+    registrar_musica(artista=achado["artista"].split(",")[0].strip(), titulo=achado["nome"])
+    if achado["tipo"] == "artista":
+        return f"Tocando {achado['artista']}."
+    return f"Tocando {curto(achado['nome'])}" + (f", de {achado['artista']}." if achado["artista"] else ".")
 
 
 def tocar_music(busca):
@@ -370,8 +412,10 @@ def tocar_music(busca):
 
 # ---------------------------------------------------------------- tocar
 
-ONDE = re.compile(r"\s+(no|do|pelo|na) (youtube music|youtube musica|you tube music|yt music|music|youtube|you tube)$", re.I)
-# sem dizer onde, toca no YouTube Music: pedido de música é o caso comum; "no YouTube" vai para o vídeo
+ONDE = re.compile(r"\s+(no|do|pelo|na) (youtube music|youtube musica|you tube music|yt music|music|youtube|you tube|"
+                  r"spotify|spotfy|spotifai|espotifai)$", re.I)
+# sem dizer onde, toca no Spotify (JARVIS_MUSICA=spotify) ou no YouTube Music: pedido de música é o
+# caso comum; "no YouTube" vai para o vídeo
 PADRAO_TOCAR = "youtube music"
 
 
@@ -389,6 +433,13 @@ def tocar(busca):
     busca = ONDE.sub("", busca).strip()
     if not busca:
         return None
+    if not m and spotify.ligado():
+        onde = "spotify"
+    if onde in ("spotify", "spotfy", "spotifai", "espotifai"):
+        frase = tocar_spotify(busca)
+        if frase:
+            return frase
+        onde = PADRAO_TOCAR  # o Spotify não deu agora: o YouTube Music segue funcionando
     if onde not in ("youtube", "you tube"):
         return tocar_music(busca)
     try:
@@ -426,7 +477,7 @@ def _estado(p):
     return {"player": p, "status": g(r"'PlaybackStatus': <'(\w+)'>"),
             "titulo": g(r"'xesam:title': <'((?:[^'\\]|\\.)*)'>").replace("\\'", "'"),
             "artista": g(r"'xesam:artist': <\['((?:[^'\\]|\\.)*)'").replace("\\'", "'"),
-            "app": (re.search(r"<'([^']*)'>", app) or [None, ""])[1]}
+            "app": (re.search(r"<'([^']*)'>", app) or [None, ""])[1].replace("Spotifyd", "Spotify")}
 
 
 EXTENSAO = "extensao:youtube-music"  # "player" do YouTube Music visto pela extensão
@@ -463,6 +514,9 @@ def tocando():
     if ytm:
         # a mesma sessão vista pelo MPRIS sai, para não aparecer duas vezes
         estados = [ytm] + [e for e in estados if e["titulo"] != ytm["titulo"]]
+    if config.get("JARVIS_MUSICA").lower() == "spotify":
+        # o Spotify é a música da casa: com tudo pausado, "continua" é com ele
+        estados.sort(key=lambda e: ".spotifyd." not in e["player"])
     for status in ("Playing", "Paused"):
         for e in estados:
             if e["status"] == status:
@@ -723,6 +777,13 @@ class abaixar_musica:
         self._com_trava(mexer)
 
     @staticmethod
+    def _nome_vazio(sid):
+        """O spotifyd abre o stream com nome vazio (e ignora o PULSE_PROP): o nome vem do binário."""
+        info = subprocess.run(["wpctl", "inspect", sid], capture_output=True, text=True).stdout
+        binario = (re.search(r'application\.process\.binary = "([^"]*)"', info) or [None, ""])[1]
+        return "Spotify" if binario == "spotifyd" else (binario or f"stream {sid}")
+
+    @staticmethod
     def streams_de_saida():
         """[(id, nome)] dos streams que TOCAM som (têm porta output_), menos os do Jarvis.
         Os de entrada — o microfone do Meet, a escuta do Jarvis — também ficam de fora."""
@@ -731,9 +792,10 @@ class abaixar_musica:
         for bloco in re.findall(r"Streams:\n((?:\s+\d+\..*\n?)+)", status):
             atual = None
             for linha in bloco.splitlines():
-                m = re.match(r"^\s{6,10}(\d+)\. (?!output_|input_|monitor_)(.+?)\s*$", linha)
+                m = re.match(r"^\s{6,10}(\d+)\.(?: (?!output_|input_|monitor_)(.*?))?\s*$", linha)
                 if m:
-                    atual = (m[1], m[2]) if m[2] not in ("pw-play", "pw-cat", "piper") else None
+                    nome = m[2] or abaixar_musica._nome_vazio(m[1])
+                    atual = (m[1], nome) if nome not in ("pw-play", "pw-cat", "piper") else None
                 elif atual and re.match(r"^\s+\d+\. output_", linha) and atual not in achados:
                     achados.append(atual)
         return achados
