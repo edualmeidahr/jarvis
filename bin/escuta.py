@@ -44,7 +44,9 @@ SILENCIO_FIM_S = 1.0         # silêncio depois da fala que encerra o pedido
 ESPERA_FALA_S = 6.0          # acordou e ninguém falou: desiste
 TENTATIVAS = 2               # falou só "Ei Jarvis" de novo (ou nada): ouve mais uma vez
 MAX_PEDIDO_S = 15.0
-CONTINUACAO_S = 5.0          # depois de uma resposta falada, ouve isso sem precisar de "Ei Jarvis"
+CONTINUACAO_S = 5.0
+MIC_SEM_ECO = "jarvis_mic_sem_eco"  # serviço jarvis-aec: o microfone com a saída de som subtraída
+INTERROMPER_S = 0.4          # você fala por isso enquanto ele fala: ele se cala e te ouve          # depois de uma resposta falada, ouve isso sem precisar de "Ei Jarvis"
 
 # marcas trocadas com o jarvis.py e o falar.py
 JV = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "jarvis")
@@ -93,6 +95,8 @@ class Escuta:
         self.surdo_ate = 0.0
         self.de_novo = 0                   # tentativa seguinte, quando a fala foi só o nome
         self.continuar = False             # respondeu falando: ouvir a continuação
+        self.sem_eco = False
+        self.voz_seguida = 0               # blocos seguidos com voz enquanto o Jarvis fala
 
     def ocupado(self):
         return self.ativos > 0
@@ -107,7 +111,13 @@ class Escuta:
             return None
 
     def microfone(self):
-        return subprocess.Popen(["pw-record", "--rate", str(TAXA), "--channels", "1", "--format", "s16", "-"],
+        alvo = []
+        existe = subprocess.run(["pw-cli", "info", MIC_SEM_ECO], capture_output=True).returncode == 0
+        if existe:  # sem o jarvis-aec, o microfone normal: funciona igual, só com mais eco
+            alvo = ["--target", MIC_SEM_ECO]
+        self.sem_eco = existe
+        log(f"microfone: {'sem eco (jarvis-aec)' if existe else 'normal (jarvis-aec desligado)'}")
+        return subprocess.Popen(["pw-record", "--rate", str(TAXA), "--channels", "1", "--format", "s16", *alvo, "-"],
                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
     def ler(self, mic):
@@ -217,7 +227,16 @@ class Escuta:
                               flush=True)
                     continue
                 agora = time.time()
-                pid = self.falando() if nota >= LIMIAR else None
+                pid = self.falando()
+                # sem eco, dá para interromper só falando: a voz dele não chega ao microfone
+                if pid and self.sem_eco and nota < LIMIAR:
+                    self.voz_seguida = self.voz_seguida + 1 if self.vad.predict(bloco) > VAD_FALA else 0
+                    if self.voz_seguida * BLOCO / TAXA >= INTERROMPER_S:
+                        nota = 1.0  # trata como "Ei Jarvis": corta a fala e ouve
+                        log("interrompido pela sua voz (sem eco)")
+                else:
+                    self.voz_seguida = 0
+                pid = pid if nota >= LIMIAR else None
                 if pid:
                     # "Ei Jarvis" com ele falando: corta a fala e ouve o pedido novo
                     os.makedirs(JV, exist_ok=True)

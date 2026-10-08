@@ -1,0 +1,13 @@
+[Unit]
+Description=Jarvis — microfone sem eco (cancelamento de eco do PipeWire, só para a escuta)
+After=pipewire.service wireplumber.service
+BindsTo=pipewire.service
+Before=jarvis-escuta.service
+
+[Service]
+ExecStart=/usr/bin/pipewire -c %h/.config/jarvis/pipewire/jarvis-aec.conf
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=pipewire.service

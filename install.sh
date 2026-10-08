@@ -40,6 +40,7 @@ links() {
   for f in "$REPO"/config/*.txt; do
     ligar "$f" "$HOME/.config/jarvis/$(basename "$f")"
   done
+  ligar "$REPO/config/pipewire" "$HOME/.config/jarvis/pipewire"
   for f in "$REPO"/systemd/*; do
     ligar "$f" "$HOME/.config/systemd/user/$(basename "$f")"
   done
@@ -139,6 +140,8 @@ gnome() {
 
 servicos() {
   passo "Serviço do \"Ei Jarvis\""
+  # o microfone sem eco antes da escuta: ela escolhe o microfone quando sobe
+  systemctl --user enable --now jarvis-aec.service
   systemctl --user enable --now jarvis-escuta.service
 }
 

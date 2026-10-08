@@ -4,7 +4,8 @@ Assistente de voz para o meu Linux (GNOME com Wayland). Roda quase tudo localmen
 
 ## O que ele faz
 
-- **"Ei Jarvis"** acorda o assistente, e `Insert` dita texto para o clipboard. Depois de uma resposta falada, ele ouve mais 5 segundos sem precisar do nome. "Ei Jarvis" no meio de uma fala corta a fala.
+- **"Ei Jarvis"** acorda o assistente, e `Insert` dita texto para o clipboard. Depois de uma resposta falada, ele ouve mais 5 segundos sem precisar do nome. Se você começar a falar enquanto ele fala, ele se cala e escuta.
+- **Microfone sem eco**: o serviço `jarvis-aec` cria um microfone virtual que subtrai o que sai pelas caixas (cancelamento de eco do WebRTC, dentro do PipeWire). A escuta e o ditado usam esse microfone; o Meet e o resto continuam no normal. Sem o serviço, tudo funciona com o microfone normal.
 - **Música e mídia**: toca no YouTube Music ou no YouTube, pausa, pula e controla o volume. A música abaixa sozinha enquanto ele fala.
 - **Apps e sites**: abre por nome ("abre o Obsidian").
 - **Trabalho**: painel do GitLab às 7h, agenda do Google e lembrete de reunião 15 minutos antes. Também cria e edita tarefas no quadro do Obsidian.
@@ -20,8 +21,8 @@ Assistente de voz para o meu Linux (GNOME com Wayland). Roda quase tudo localmen
 | `bin/` | todos os scripts | `~/.claude/bin` (link) |
 | `gnome/` | extensão do ponto na barra | `~/.local/share/gnome-shell/extensions/` (link) |
 | `chrome/` | extensão "Jarvis Música" (YouTube Music e leitura de página) | `~/.local/share/jarvis/extensao` (link) |
-| `systemd/` | escuta do "Ei Jarvis" e timers do trabalho | `~/.config/systemd/user/` (link) |
-| `config/` | artistas (vocabulário do Whisper) e pronúncia | `~/.config/jarvis/` (link) |
+| `systemd/` | escuta do "Ei Jarvis", microfone sem eco e timers do trabalho | `~/.config/systemd/user/` (link) |
+| `config/` | artistas (vocabulário do Whisper), pronúncia e o microfone sem eco (`pipewire/`) | `~/.config/jarvis/` (link) |
 
 Os caminhos de sempre são links para este repositório. Editar em qualquer um dos dois lados é a mesma coisa.
 

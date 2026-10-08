@@ -69,7 +69,10 @@ if [ -z "$ACORDADO" ]; then
 python3 "$ESTADO" ouvindo "Insert"
 rm -f "$WAV"
 aviso --nova --som ouvindo "Estou ouvindo…"
-pw-record --rate 16000 --channels 1 "$WAV" >>"$LOG" 2>&1 &
+# o microfone sem eco (serviço jarvis-aec), se existir: a música não entra no ditado
+ALVO=()
+pw-cli info jarvis_mic_sem_eco >/dev/null 2>&1 && ALVO=(--target jarvis_mic_sem_eco)
+pw-record --rate 16000 --channels 1 "${ALVO[@]}" "$WAV" >>"$LOG" 2>&1 &
 gravador=$!
 echo "$gravador" > "$PID"
 
