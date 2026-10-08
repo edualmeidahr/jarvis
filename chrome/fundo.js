@@ -124,21 +124,28 @@ async function tratar(pedido) {
     const [r] = await chrome.scripting.executeScript({ target: { tabId: aba.id }, func: lerPagina, args: [20000] });
     return { ok: true, ...r.result };
   }
+  if (pedido.acao === "ajeitar_musica") {
+    // o app do YouTube Music acabou de abrir: se a tela do Jarvis está aberta, ele não fica por cima
+    // dela (minimiza). Sem a tela aberta, o app fica visível. Janela criada pela extensão seria uma
+    // aba comum do navegador, não o app — por isso quem abre é o Jarvis, e aqui só se ajeita
+    for (let i = 0; i < 40; i++) {
+      const [musica] = await chrome.tabs.query({ url: YTM });
+      if (musica) {
+        const telas = await chrome.tabs.query({ url: "http://127.0.0.1:8765/*" });
+        if (telas.length) await chrome.windows.update(musica.windowId, { state: "minimized" });
+        return { ok: true, minimizado: telas.length > 0 };
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    return { ok: false, erro: "o app do YouTube Music não abriu" };
+  }
   if (pedido.acao === "recarregar") {  // o Jarvis atualizou estes arquivos: relê sem você clicar
     setTimeout(() => chrome.runtime.reload(), 200);
     return { ok: true };
   }
   const aba = await abaDaMusica();
   if (pedido.acao === "tocar") {
-    if (!aba) {
-      // sem aba do YouTube Music: abre numa janela JÁ minimizada. A música toca em segundo plano
-      // e nada cobre a tela do Jarvis (antes o app abria por cima dela no bom dia)
-      if (!String(pedido.url || "").startsWith("https://music.youtube.com/")) {
-        return { ok: false, erro: "só endereço do YouTube Music" };
-      }
-      await chrome.windows.create({ url: pedido.url, state: "minimized", focused: false });
-      return { ok: true, aberta: true, como: "janela minimizada" };
-    }
+    if (!aba) return { ok: true, aberta: false };  // sem aba: o Jarvis abre o app (ajeitar_musica depois)
     if (!String(pedido.url || "").startsWith("https://music.youtube.com/")) {
       return { ok: false, erro: "só endereço do YouTube Music" };
     }

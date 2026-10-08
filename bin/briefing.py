@@ -196,7 +196,6 @@ def dados():
         f"TAREFAS EM ABERTO: {'; '.join(abertas) or 'nenhuma'}",
         f"NOTÍCIAS: " + (" | ".join(f"[{x['tema']}] {x['titulo']}" for x in ns) or "indisponíveis"),
         f"SUGESTÕES DE MÚSICA (o que ele mais pede): {'; '.join(sugestoes()) or 'nenhuma ainda'}",
-        f"MELHORIAS NO PRÓPRIO SISTEMA DESDE ONTEM: {qtd}" + (f" (por exemplo: {'; '.join(assuntos[:3])})" if qtd else ""),
     ]
     cartoes = {"gerado_em": time.time(), "clima": c, "agenda_hoje": agenda(hoje), "noticias": ns,
                "melhorias": qtd, "mrs": mrs, "reviews": revs, "tarefas": abertas}

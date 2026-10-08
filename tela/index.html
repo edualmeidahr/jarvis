@@ -239,7 +239,7 @@ function desenhar(d) {
     : `<span style="color:var(--texto-3)">Nada tocando</span>`;
   const ns = (d.noticias || []).map((n) => `<div class="noticia"><span>${esc(n.tema)}</span>${esc(n.titulo)}</div>`).join("");
   if ($("noticias").innerHTML !== ns) $("noticias").innerHTML = ns || `<div class="noticia" style="color:var(--texto-3)">Sem notícias</div>`;
-  texto($("melhorias"), d.melhorias ? `${d.melhorias} melhorias desde ontem` : "");
+  texto($("melhorias"), "");
 }
 
 const CEU = { 0: "Céu limpo", 1: "Quase sem nuvens", 2: "Parcialmente nublado", 3: "Nublado", 45: "Neblina", 48: "Neblina",

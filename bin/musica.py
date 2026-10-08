@@ -119,7 +119,7 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     if args and args[0].startswith("chrome-extension://"):
         Ponte().rodar()
-    elif args and args[0] in ("estado", "pausar", "continuar", "proxima", "anterior", "inicio", "tocar", "recarregar", "pagina"):
+    elif args and args[0] in ("estado", "pausar", "continuar", "proxima", "anterior", "inicio", "tocar", "recarregar", "pagina", "ajeitar_musica"):
         print(pedir({"acao": args[0], "url": args[1] if len(args) > 1 else ""}))
     else:
         sys.exit(__doc__)

@@ -261,11 +261,13 @@ _spec_m.loader.exec_module(musica)
 
 def abrir_musica(endereco):
     """Com a extensão Jarvis Música: troca a faixa na aba do YouTube Music que já está aberta, ou
-    abre uma janela minimizada (toca em segundo plano). Sem extensão: abre o app (janela nova)."""
+    abre o app (minimizado se a tela do Jarvis estiver aberta). Sem extensão: abre o app."""
     pausar_o_que_toca(fora_da_musica=True)
     r = musica.pedir({"acao": "tocar", "url": endereco})
     if not (r and r.get("ok") and r.get("aberta")):
         abrir_no_app("YouTube Music", endereco)
+        if r is not None:  # com a extensão: minimiza o app se a tela do Jarvis estiver aberta (sem esperar)
+            soltar(["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "musica.py"), "ajeitar_musica"])
 
 
 def artistas_conhecidos():

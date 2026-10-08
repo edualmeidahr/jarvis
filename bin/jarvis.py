@@ -796,7 +796,6 @@ A saudação ("{saudacao}") JÁ FOI DITA: comece direto por uma frase de efeito 
 - o clima (agora, mínima e máxima, chance de chuva; só diga guarda-chuva se passar de 50%);
 - as reuniões de hoje (e as de amanhã só se houver algo fora da rotina);
 - GitLab e tarefas: só o que pede ação dele hoje; se nada pede, diga isso numa frase;
-- as melhorias no seu próprio sistema desde ontem: o número, com um orgulho discreto, sem detalhe técnico;
 - as notícias, uma frase cada, sem citar o veículo;
 - termine perguntando se ele quer ouvir alguma coisa, oferecendo as SUGESTÕES DE MÚSICA dos dados pelo nome
   (por exemplo: "Quer ouvir alguma coisa? Posso tocar Queen, Bruno e Marrone ou uma playlist de eletrônica.").
