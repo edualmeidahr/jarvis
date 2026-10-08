@@ -22,6 +22,9 @@ const HOME = GLib.get_home_dir();
 const BIN = `${HOME}/.claude/bin`;
 const ESTADO = `${GLib.get_user_runtime_dir()}/jarvis/estado.json`;
 const AGENDA = `${HOME}/.claude/cache/agenda.json`;
+// os botões do menu vêm deste arquivo, lido a cada vez que o menu abre: botão novo não exige
+// sair e entrar na sessão (só mudança neste extension.js exige)
+const MENU = `${HOME}/.config/jarvis/menu.json`;
 const LER_MS = 500;           // o ponto acompanha o arquivo de estado nesse ritmo
 const ESCUTA_MS = 10000;      // conferir se o serviço do "Ei Jarvis" está ligado
 
@@ -83,12 +86,8 @@ class Indicador extends PanelMenu.Button {
             rodar([`${BIN}/escuta-alterna.sh`], () => this._conferirEscuta());
         });
         this.menu.addMenuItem(this._chave);
-        const tela = new PopupMenu.PopupMenuItem('Abrir a tela do Jarvis');
-        tela.connect('activate', () => rodar(['python3', `${BIN}/tela.py`, 'abrir']));
-        this.menu.addMenuItem(tela);
-        const atualizar = new PopupMenu.PopupMenuItem('Atualizar o GitLab agora');
-        atualizar.connect('activate', () => rodar([`${BIN}/atualiza.sh`]));
-        this.menu.addMenuItem(atualizar);
+        this._secaoBotoes = new PopupMenu.PopupMenuSection();
+        this.menu.addMenuItem(this._secaoBotoes);
 
         this.menu.connect('open-state-changed', (_m, aberto) => {
             if (aberto)
@@ -176,7 +175,27 @@ class Indicador extends PanelMenu.Button {
         });
     }
 
+    _botoes() {
+        this._secaoBotoes.removeAll();
+        let itens = [];
+        try {
+            const [, bytes] = GLib.file_get_contents(MENU);
+            itens = JSON.parse(decoder.decode(bytes));
+        } catch (e) {
+            itens = [];
+        }
+        for (const item of itens) {
+            const argv = (item.comando || []).map(a => a.replace(/^~\//, `${HOME}/`));
+            if (!item.rotulo || !argv.length)
+                continue;
+            const botao = new PopupMenu.PopupMenuItem(item.rotulo);
+            botao.connect('activate', () => rodar(argv));
+            this._secaoBotoes.addMenuItem(botao);
+        }
+    }
+
     _preencherMenu() {
+        this._botoes();
         this._atualizarTextoEstado();
         this._itemReuniao.label.text = this._proximaReuniao();
         this._itemTocando.label.text = '♪ …';

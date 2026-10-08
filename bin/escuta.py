@@ -45,6 +45,8 @@ SILENCIO_FIM_S = 1.0         # silêncio depois da fala que encerra o pedido
 ESPERA_FALA_S = 6.0          # acordou e ninguém falou: desiste
 TENTATIVAS = 2               # falou só "Ei Jarvis" de novo (ou nada): ouve mais uma vez
 MAX_PEDIDO_S = 15.0
+CAUDA_DO_NOME_S = 1.5        # depois de acordar, a fala só conta como pedido depois do 1º silêncio
+                             # (o fim do "Jarvis"); emendado sem pausa, conta depois deste tempo
 CONTINUACAO_S = 5.0
 SEM_SOM_S = 5.0              # o microfone manda 16 mil amostras por segundo: 5 s sem nada = travou
 VOZ_LIMITE_S = 150           # um pedido (transcrever + Claude + falar) não passa disso
@@ -188,6 +190,8 @@ class Escuta:
     def ouvir_pedido(self, mic, espera_s=ESPERA_FALA_S):
         """Grava do microfone até você parar de falar. Devolve as amostras, ou None se não falou."""
         blocos, falou, silencio, inicio = [], False, 0.0, time.time()
+        nome_acabou = espera_s == CONTINUACAO_S  # na continuação não houve nome
+        calado = 0
         self.pico, self.vad_max = 0, 0.0  # diagnóstico do "ninguém falou"
         passo = BLOCO / TAXA
         folga = int(0.6 / passo)  # guarda 0,6 s antes da fala: com 0,3 s o "T" de "tocar" sumia ("Lócar")
@@ -197,7 +201,20 @@ class Escuta:
             nota_vad = self.vad.predict(bloco)
             self.pico, self.vad_max = max(self.pico, int(np.abs(bloco).max())), max(self.vad_max, nota_vad)
             voz = nota_vad > VAD_FALA
-            if voz and not falou:
+            # o resto do "Jarvis" não conta como pedido: antes ele marcava o início da fala, a pausa de
+            # quem espera o sinal marcava o fim, e a gravação saía só com o nome ("A Jarvis"). O nome
+            # acaba no primeiro silêncio de verdade (3 blocos: o VAD começa "frio" e o 1º bloco vem
+            # baixo mesmo com fala) ou, tudo emendado, depois de CAUDA_DO_NOME_S
+            emendado = False
+            if not nome_acabou:
+                calado = 0 if voz else calado + 1
+                if calado >= 3:
+                    nome_acabou = True
+                elif time.time() - inicio >= CAUDA_DO_NOME_S:
+                    nome_acabou, emendado = True, voz
+                else:
+                    voz = False
+            if voz and not falou and not emendado:
                 blocos = blocos[-(folga + 1):]  # o silêncio de espera só atrasaria o Whisper
             if voz:
                 falou, silencio = True, 0.0

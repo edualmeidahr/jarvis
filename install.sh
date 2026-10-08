@@ -37,7 +37,7 @@ links() {
   ligar "$REPO/bin" "$HOME/.claude/bin"
   ligar "$REPO/gnome/$GNOME_EXT" "$HOME/.local/share/gnome-shell/extensions/$GNOME_EXT"
   ligar "$REPO/chrome" "$DADOS/extensao"
-  for f in "$REPO"/config/*.txt; do
+  for f in "$REPO"/config/*.txt "$REPO"/config/menu.json; do
     ligar "$f" "$HOME/.config/jarvis/$(basename "$f")"
   done
   ligar "$REPO/config/pipewire" "$HOME/.config/jarvis/pipewire"

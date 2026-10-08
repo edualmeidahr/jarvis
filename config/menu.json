@@ -1,0 +1,5 @@
+[
+  {"rotulo": "Abrir a tela do Jarvis", "comando": ["python3", "~/.claude/bin/tela.py", "abrir"]},
+  {"rotulo": "Bom dia", "comando": ["python3", "~/.claude/bin/jarvis.py", "Jarvis, bom dia"]},
+  {"rotulo": "Atualizar o GitLab agora", "comando": ["~/.claude/bin/atualiza.sh"]}
+]
