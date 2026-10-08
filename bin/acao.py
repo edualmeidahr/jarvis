@@ -642,12 +642,44 @@ def _spotify_tocando():
     return any(".spotifyd." in p and _estado(p)["status"] == "Playing" for p in players())
 
 
+# O spotifyd põe o volume do Spotify numa curva de 60 dB: 70% já é -18 dB e 50% é -30 dB, quase
+# mudo (ele reclamou: "do 10 pro 7 já diminui muito"). Não tem opção para mudar a faixa, então a
+# conta é feita aqui: o volume que ele pede vira 0,35 dB por ponto (70 → -10 dB, 50 → -17 dB,
+# perto da curva do volume do sistema, e 10 → -31 dB, ainda dá para ouvir).
+DB_POR_PONTO, DB_FAIXA_SPOTIFYD = 0.35, 60
+
+
+def _para_spotifyd(v):
+    return 0 if v <= 0 else round(100 - (100 - v) * DB_POR_PONTO * 100 / DB_FAIXA_SPOTIFYD)
+
+
+def _do_spotifyd(p):
+    return 0 if p <= 0 else max(1, round(100 - (100 - p) * DB_FAIXA_SPOTIFYD / (DB_POR_PONTO * 100)))
+
+
+VOLUME_SPOTIFY = os.path.expanduser("~/.cache/jarvis/spotify-volume.json")
+
+
+def _volume_spotify_atual():
+    """O volume (na escala dele) de agora. A API devolve o volume com atraso de alguns segundos
+    (logo depois de "volume 5", o "abaixa" lia o 7 de antes). Então vale o último que o Jarvis pôs,
+    a não ser que o da API seja outro há tempo: aí mudaram por fora (no celular)."""
+    api = (spotify.api("GET", "/me/player").get("device") or {}).get("volume_percent")
+    try:
+        ultimo = json.load(open(VOLUME_SPOTIFY))
+        if api is None or abs(api - ultimo["spotifyd"]) <= 1 or time.time() - ultimo["quando"] < 15:
+            return ultimo["dele"]
+    except (OSError, ValueError, KeyError):
+        pass
+    return None if api is None else _do_spotifyd(api)
+
+
 def volume_spotify(quanto):
     """O volume do próprio player do Spotify (Web API), sem mexer no do sistema. O stream dele no
     PipeWire fica sempre em 100%: é esse que o ducking abaixa e devolve. None: não deu."""
     try:
         if quanto in PASSOS_VOLUME:
-            atual = (spotify.api("GET", "/me/player").get("device") or {}).get("volume_percent")
+            atual = _volume_spotify_atual()
             if atual is None:
                 return None
             alvo = atual + PASSOS_VOLUME[quanto]
@@ -659,7 +691,10 @@ def volume_spotify(quanto):
         else:
             return None
         alvo = max(0, min(100, alvo))
-        spotify.api("PUT", "/me/player/volume", params={"volume_percent": alvo, "device_id": spotify.dispositivo()})
+        spotify.api("PUT", "/me/player/volume", params={"volume_percent": _para_spotifyd(alvo),
+                                                         "device_id": spotify.dispositivo()})
+        os.makedirs(os.path.dirname(VOLUME_SPOTIFY), exist_ok=True)
+        json.dump({"dele": alvo, "spotifyd": _para_spotifyd(alvo), "quando": time.time()}, open(VOLUME_SPOTIFY, "w"))
     except spotify.SemSpotify:
         return None
     _registrar_volume(f"spotify {quanto}", alvo)

@@ -37,6 +37,8 @@ import urllib.request
 BIN = os.path.dirname(os.path.realpath(__file__))
 SECRET_TOOL = os.path.expanduser("~/.local/bin/secret-tool")
 TOKEN = os.path.expanduser("~/.cache/jarvis/spotify-token.json")
+FILA = os.path.expanduser("~/.cache/jarvis/spotify-fila.json")  # o id da playlist "Jarvis"
+NOME_FILA = "Jarvis"  # a playlist privada de uma música só (ver tocar_achado)
 API = "https://api.spotify.com/v1"
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
@@ -44,7 +46,7 @@ REDIRECT = "http://127.0.0.1:8899/callback"  # a mesma cadastrada no app do pain
 DISPOSITIVO = "Jarvis"  # device_name do config/spotifyd/spotifyd.conf
 ESCOPOS = ("user-read-playback-state user-modify-playback-state user-read-currently-playing "
            "playlist-read-private playlist-read-collaborative user-library-read user-top-read "
-           "user-read-recently-played")
+           "user-read-recently-played playlist-modify-private")
 REDE_S = 8
 
 _spec = importlib.util.spec_from_file_location("config", os.path.join(BIN, "config.py"))
@@ -186,7 +188,10 @@ def api(metodo, caminho, corpo=None, params=None, _de_novo=True):
     try:
         with urllib.request.urlopen(req, timeout=REDE_S) as r:
             bruto = r.read()
-            return json.loads(bruto) if bruto.strip() else {}
+            try:
+                return json.loads(bruto) if bruto.strip() else {}
+            except ValueError:  # alguns comandos (seek, volume) devolvem um texto solto, não JSON
+                return {}
     except urllib.error.HTTPError as e:
         if e.code == 401 and _de_novo:  # token vencido antes da hora: renova uma vez
             token(renovar=True)
@@ -254,7 +259,7 @@ def escolher(busca, playlist=False):
     2. pedido de playlist: a primeira playlist da busca
     3. o nome de um artista (quase igual): o artista
     4. a primeira música da busca"""
-    minhas = playlists()
+    minhas = [p for p in playlists() if p["nome"] != NOME_FILA]
     if minhas:
         p = max(minhas, key=lambda p: parecido(busca, p["nome"]))
         if parecido(busca, p["nome"]) >= (0.7 if playlist else 0.9):
@@ -274,14 +279,89 @@ def escolher(busca, playlist=False):
     if faixas:
         t = faixas[0]
         return {"tipo": "musica", "nome": t["name"], "artista": ", ".join(x["name"] for x in t["artists"][:2]),
-                "uri": t["uri"]}
+                "uri": t["uri"], "faixa": t}
     return None
 
 
+def contexto_da_musica(t):
+    """Onde tocar a música para a fila seguir sozinha, como no app.
+
+    Música solta (só a uri) não tem contexto: o spotifyd toca ela e para, sem autoplay (testado).
+    O autoplay só começa quando um contexto acaba. Então: o single dela, de uma faixa só, se
+    existir (as recomendações começam logo depois); senão, o álbum, a partir dela.
+    Devolve (uri do contexto, uri da faixa onde começar ou None)."""
+    album = t.get("album") or {}
+    if album.get("total_tracks") == 1:
+        return album["uri"], None
+    artista = t["artists"][0]["name"] if t.get("artists") else ""
+    try:
+        versoes = buscar(f'track:"{t["name"]}" artist:"{artista}"', ["track"]).get("tracks", {}).get("items") or []
+    except SemSpotify:
+        versoes = []
+    for v in versoes:
+        if (v and (v.get("album") or {}).get("total_tracks") == 1 and parecido(v["name"], t["name"]) >= 0.9
+                and v["artists"] and v["artists"][0]["name"] == artista):
+            return v["album"]["uri"], None
+    return (album["uri"], t["uri"]) if album.get("uri") else None
+
+
+def playlist_fila():
+    """O id da playlist privada "Jarvis" (cria na primeira vez). None se não deu (falta o escopo
+    playlist-modify-private: rode spotify.py configurar de novo)."""
+    try:
+        return json.load(open(FILA))["id"]
+    except (OSError, ValueError, KeyError):
+        pass
+    eu = api("GET", "/me")["id"]
+    achada = next((p for p in api("GET", "/me/playlists", params={"limit": 50}).get("items") or []
+                   if p and p["name"] == NOME_FILA and (p.get("owner") or {}).get("id") == eu), None)
+    if not achada:
+        corpo = {"name": NOME_FILA, "public": False,
+                 "description": "Usada pelo Jarvis: a música que você pediu, e o Spotify segue com recomendações."}
+        try:
+            achada = api("POST", "/me/playlists", corpo=corpo)
+        except SemSpotify:
+            achada = api("POST", f"/users/{eu}/playlists", corpo=corpo)
+    os.makedirs(os.path.dirname(FILA), exist_ok=True)
+    json.dump({"id": achada["id"]}, open(FILA, "w"))
+    return achada["id"]
+
+
+def _por_na_fila(uri):
+    """Deixa a playlist "Jarvis" só com esta música. Devolve a uri da playlist, ou None."""
+    try:
+        pid = playlist_fila()
+        try:
+            api("PUT", f"/playlists/{pid}/items", corpo={"uris": [uri]})
+        except SemSpotify:
+            api("PUT", f"/playlists/{pid}/tracks", corpo={"uris": [uri]})  # nome antigo do mesmo endpoint
+        return f"spotify:playlist:{pid}"
+    except SemSpotify:
+        try:
+            os.remove(FILA)  # a playlist pode ter sido apagada: na próxima, procura ou cria de novo
+        except OSError:
+            pass
+        return None
+
+
 def tocar_achado(achado):
-    """Toca o que o escolher() achou no dispositivo Jarvis (música solta ou contexto inteiro)."""
+    """Toca o que o escolher() achou no dispositivo Jarvis.
+
+    Música pedida: vai sozinha para a playlist "Jarvis" e toca essa playlist. Quando ela acaba
+    (logo depois da música), o autoplay do Spotify segue com recomendações, como no app. Tocar
+    só a uri não serve: sem contexto, o spotifyd toca e para (testado). Sem a playlist (falta de
+    escopo), toca dentro do single ou do álbum, e o autoplay entra quando ele acaba."""
     alvo = dispositivo()
-    corpo = {"uris": [achado["uri"]]} if achado["tipo"] == "musica" else {"context_uri": achado["uri"]}
+    fila = _por_na_fila(achado["uri"]) if achado["tipo"] == "musica" else None
+    if achado["tipo"] != "musica":
+        corpo = {"context_uri": achado["uri"]}
+    elif fila:
+        corpo = {"context_uri": fila}
+    elif achado.get("faixa") and (contexto_e_faixa := contexto_da_musica(achado["faixa"])):
+        contexto, a_partir_de = contexto_e_faixa
+        corpo = {"context_uri": contexto} | ({"offset": {"uri": a_partir_de}} if a_partir_de else {})
+    else:
+        corpo = {"uris": [achado["uri"]]}
     api("PUT", "/me/player/play", corpo=corpo, params={"device_id": alvo})
 
 
@@ -326,7 +406,8 @@ def main():
             playlist = bool(re.search(r"\bplaylists?\b", resto, re.I))
             termo = re.sub(r"\b(a |uma )?playlists?( de| do| da)?\b", "", resto, flags=re.I).strip() or resto
             achado = tocar(termo, playlist)
-            print(json.dumps(achado, ensure_ascii=False) if achado else "não achei")
+            print(json.dumps({k: v for k, v in achado.items() if k != "faixa"}, ensure_ascii=False)
+                  if achado else "não achei")
             return 0 if achado else 1
         if cmd == "agora":
             print(json.dumps(agora(), ensure_ascii=False))
