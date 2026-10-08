@@ -546,6 +546,17 @@ def som_saindo(app="Google Chrome"):
     return False
 
 
+def _pular_no_spotify(o_que):
+    """Próxima/anterior no Spotify pela Web API. Pelo MPRIS, "próxima" na última faixa do contexto
+    PARA o spotifyd em vez de entrar nas recomendações (a playlist "Jarvis" tem uma faixa só)."""
+    try:
+        spotify.api("POST", "/me/player/next" if o_que == "proxima" else "/me/player/previous",
+                    params={"device_id": spotify.dispositivo()})
+        return True
+    except spotify.SemSpotify:
+        return False
+
+
 def midia(o_que):
     """Age só no player que está tocando (ou no pausado), e diz o que ficou tocando.
 
@@ -585,13 +596,13 @@ def midia(o_que):
     if o_que == "inicio":  # Seek negativo grande: volta para o zero sem precisar do trackid
         _gdbus("--dest", p, "--object-path", "/org/mpris/MediaPlayer2", "--method",
                "org.mpris.MediaPlayer2.Player.Seek", "--", "-999999999999")
-    else:
+    elif not (".spotifyd." in p and o_que in ("proxima", "anterior") and _pular_no_spotify(o_que)):
         _gdbus("--dest", p, "--object-path", "/org/mpris/MediaPlayer2", "--method",
                f"org.mpris.MediaPlayer2.Player.{metodo}")
     if o_que in ("proxima", "anterior"):
-        # a faixa nova leva um instante para aparecer no MPRIS
+        # a faixa nova leva um instante para aparecer no MPRIS (no spotifyd, às vezes mais de 3 s)
         antes = e["titulo"]
-        for _ in range(20):
+        for _ in range(40):
             time.sleep(0.15)
             e = _estado(p)
             if e["titulo"] and e["titulo"] != antes:
