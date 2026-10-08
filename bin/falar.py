@@ -17,8 +17,11 @@ Regras:
 import datetime as dt
 import fcntl
 import json
+import hashlib
 import os
+import queue
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -186,8 +189,30 @@ def frases(texto, minimo=25):
     return saida or [texto]
 
 
+CACHE_FALAS = os.path.expanduser("~/.cache/jarvis/falas")
+
+
+def _assinatura():
+    """Muda quando a voz muda: frase guardada de uma voz antiga não pode tocar."""
+    partes = [VOZ, str(VELOCIDADE), PAUSA, RITMO, TIMBRE, str(TOM)]
+    for f in (VOZ, TIMBRE_PY, DICIONARIO):
+        try:
+            partes.append(str(os.path.getmtime(f)))
+        except OSError:
+            pass
+    return "|".join(partes)
+
+
 def _sintetizar(trecho, pasta, n, primeira):
-    """O WAV pronto para tocar (com o timbre), ou None se o Piper falhou."""
+    """O WAV pronto para tocar (com o timbre), ou None se o Piper falhou.
+    Frase curta ("Boa noite, senhor.", "Um momento.") fica guardada: na próxima vez toca na hora,
+    sem os ~1,2 s de síntese."""
+    guardar = len(trecho) <= 60
+    if guardar:
+        chave = hashlib.sha1(f"{_assinatura()}|{primeira}|{trecho}".encode()).hexdigest()
+        guardado = os.path.join(CACHE_FALAS, f"{chave}.wav")
+        if os.path.exists(guardado):
+            return guardado
     cru, final = os.path.join(pasta, f"{n}-cru.wav"), os.path.join(pasta, f"{n}.wav")
     com_timbre = os.path.exists(TIMBRE_PY) and os.access(VENV_PY, os.X_OK)
     escala = VELOCIDADE * TOM if com_timbre else VELOCIDADE
@@ -197,23 +222,75 @@ def _sintetizar(trecho, pasta, n, primeira):
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
     if not os.path.exists(cru):
         return None
-    if not com_timbre:
-        return cru
-    r = subprocess.run([VENV_PY, TIMBRE_PY, cru, final, *([] if primeira else ["--sem-folga"])],
-                       stderr=subprocess.DEVNULL, check=False)
-    if r.returncode == 0:
-        return final
-    # sem o timbre, a duração sairia curta: refaz cru, no ritmo certo
-    subprocess.run([*piper, "--length_scale", f"{VELOCIDADE:.3f}"], input=pronunciar(trecho), text=True,
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
-    return cru
+    pronto = cru
+    if com_timbre:
+        r = subprocess.run([VENV_PY, TIMBRE_PY, cru, final, *([] if primeira else ["--sem-folga"])],
+                           stderr=subprocess.DEVNULL, check=False)
+        if r.returncode == 0:
+            pronto = final
+        else:  # sem o timbre, a duração sairia curta: refaz cru, no ritmo certo
+            subprocess.run([*piper, "--length_scale", f"{VELOCIDADE:.3f}"], input=pronunciar(trecho), text=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    if guardar:
+        os.makedirs(CACHE_FALAS, exist_ok=True)
+        shutil.copyfile(pronto, guardado)
+    return pronto
 
 
 def tocar(texto):
-    """Fala frase a frase: a próxima é sintetizada enquanto a atual toca (sem buraco entre elas),
-    e cada frase vai para o estado.json — a tela mostra a legenda e acende o cartão do assunto."""
+    """Fala o texto frase a frase (ver tocar_fluxo)."""
+    return tocar_fluxo(frases(texto))
+
+
+def tocar_fluxo(partes):
+    """Fala frases que podem ir chegando aos poucos (um gerador: o Claude escrevendo). A próxima é
+    sintetizada enquanto a atual toca, sem buraco entre elas, e cada frase vai para o estado.json
+    — a tela mostra a legenda e acende o cartão do assunto."""
     if nao_perturbe():
+        for _ in partes:  # esvazia o gerador: quem escreve não fica esperando
+            pass
         return 0
+    if not (os.path.exists(PIPER) and os.path.exists(VOZ)):
+        print("falar: Piper ou a voz não estão em ~/.local/share/piper", file=sys.stderr)
+        return 1
+    with open(TRAVA, "w") as trava:
+        fcntl.flock(trava, fcntl.LOCK_EX)  # fila: a segunda fala espera a primeira acabar
+        with tempfile.TemporaryDirectory(dir=os.path.dirname(TRAVA)) as pasta:
+            fila = queue.Queue(maxsize=2)  # no máximo duas frases prontas à frente
+
+            def produzir():
+                try:
+                    for n, frase in enumerate(partes):
+                        fila.put((frase, _sintetizar(frase, pasta, n, primeira=(n == 0))))
+                except Exception:
+                    pass
+                finally:
+                    fila.put(None)
+
+            threading.Thread(target=produzir, daemon=True).start()
+            os.makedirs(os.path.dirname(FALANDO), exist_ok=True)
+            try:
+                while True:
+                    item = fila.get()
+                    if item is None:
+                        break
+                    frase, caminho = item
+                    if not caminho:
+                        continue
+                    estado.marcar("falando", frase)
+                    # o pid fica num arquivo enquanto fala: a escuta corta a fala se você interromper
+                    tocador = subprocess.Popen(["pw-play", *SEM_VOLUME_SALVO, caminho], stderr=subprocess.DEVNULL)
+                    with open(FALANDO, "w") as f:
+                        f.write(str(tocador.pid))
+                    if tocador.wait() < 0:  # morto por sinal = interrompido: o resto não toca
+                        break
+            finally:
+                estado.marcar("parado")
+                try:
+                    os.remove(FALANDO)
+                except OSError:
+                    pass
+    return 0
     if not (os.path.exists(PIPER) and os.path.exists(VOZ)):
         print("falar: Piper ou a voz não estão em ~/.local/share/piper", file=sys.stderr)
         return 1

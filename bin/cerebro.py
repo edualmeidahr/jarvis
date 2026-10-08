@@ -57,7 +57,9 @@ class Sessao:
                 self.proc.kill()
         self.proc = None
 
-    def perguntar(self, texto):
+    def perguntar(self, texto, ao_escrever=None):
+        """A resposta inteira. ao_escrever(pedaço) recebe o texto conforme o Claude escreve:
+        quem fala pode começar pela primeira frase (o bom dia longo ganha uns 3 s)."""
         velha = time.time() - self.ultimo > OCIOSA_S or self.turnos >= MAX_TURNOS
         if self.proc is None or self.proc.poll() is not None or velha:
             self._abrir()
@@ -73,6 +75,13 @@ class Sessao:
                     ev = json.loads(linha)
                 except ValueError:
                     continue
+                if ao_escrever and ev.get("type") == "stream_event":
+                    e = ev.get("event") or {}
+                    if e.get("type") == "content_block_delta" and (e.get("delta") or {}).get("type") == "text_delta":
+                        try:
+                            ao_escrever(e["delta"]["text"])
+                        except Exception:
+                            pass
                 if ev.get("type") == "result":
                     resultado["texto"] = ev.get("result") or ""
                     resultado["erro"] = ev.get("is_error")
@@ -120,9 +129,13 @@ def servir():
         with con:
             try:
                 pedido = json.loads(con.makefile().readline())
+
+                def repassar(pedaco):  # em fluxo: cada pedaço vai na hora, uma linha por pedaço
+                    con.sendall(json.dumps({"pedaco": pedaco}, ensure_ascii=False).encode() + b"\n")
+
                 with vez:
                     t = time.time()
-                    texto = sessao.perguntar(pedido["texto"])
+                    texto = sessao.perguntar(pedido["texto"], repassar if pedido.get("fluxo") else None)
                     log(f"pergunta respondida em {time.time() - t:.1f}s")
                 resposta = {"ok": texto is not None, "texto": texto or ""}
             except Exception as e:  # um pedido ruim não derruba o serviço
@@ -137,17 +150,24 @@ def servir():
         threading.Thread(target=atender, args=(con,), daemon=True).start()
 
 
-def perguntar(texto, limite=LIMITE_S + 5):
-    """Cliente (jarvis.py): a resposta, ou None se o cérebro não está de pé."""
+def perguntar(texto, limite=LIMITE_S + 5, ao_escrever=None):
+    """Cliente (jarvis.py): a resposta, ou None se o cérebro não está de pé.
+    ao_escrever(pedaço): recebe o texto conforme o Claude escreve."""
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as c:
             c.settimeout(limite)
             c.connect(SOCKET)
-            c.sendall(json.dumps({"texto": texto}, ensure_ascii=False).encode() + b"\n")
-            r = json.loads(c.makefile().readline())
-            return r.get("texto") if r.get("ok") else None
+            c.sendall(json.dumps({"texto": texto, "fluxo": bool(ao_escrever)}, ensure_ascii=False).encode() + b"\n")
+            for linha in c.makefile():
+                r = json.loads(linha)
+                if "pedaco" in r:
+                    if ao_escrever:
+                        ao_escrever(r["pedaco"])
+                    continue
+                return r.get("texto") if r.get("ok") else None
     except (OSError, ValueError):
         return None
+    return None
 
 
 if __name__ == "__main__":

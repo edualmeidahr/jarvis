@@ -617,6 +617,26 @@ class abaixar_musica:
         self.entrou = True
         return self
 
+    def reaplicar(self):
+        """Abaixa de novo os streams de agora (a partir do volume ORIGINAL): stream que nasceu ou
+        foi recriado depois do __enter__ (o YouTube Music faz isso ao começar) vinha em 100%."""
+        if not self.entrou:
+            return
+
+        def mexer(estado):
+            for sid, nome in self.streams_de_saida():
+                if nome not in estado["originais"]:
+                    v = subprocess.run(["wpctl", "get-volume", sid], capture_output=True, text=True).stdout
+                    m = re.search(r"([\d.]+)", v)
+                    if not m:
+                        continue
+                    estado["originais"][nome] = m[1]
+                subprocess.run(["wpctl", "set-volume", sid, f"{float(estado['originais'][nome]) * self.nivel:.2f}"],
+                               check=False)
+            return estado
+
+        self._com_trava(mexer)
+
     def __exit__(self, *_):
         if not self.entrou:
             return

@@ -26,6 +26,7 @@ import difflib
 import importlib.util
 import json
 import os
+import queue
 import random
 import re
 import subprocess
@@ -74,7 +75,7 @@ _trava_fala = threading.Lock()
 _tocar_sem_duck = falar.tocar
 
 
-def _tocar_com_duck(texto):
+def _com_duck(falar_agora, *args):
     if interrompido():  # você chamou de novo no meio: esta conversa acabou, a nova fala
         return 0
     with _trava_fala:
@@ -82,13 +83,24 @@ def _tocar_com_duck(texto):
         if _falando["n"] == 1:
             _falando["duck"] = acao.abaixar_musica().__enter__()
     try:
-        return _tocar_sem_duck(texto)
+        return falar_agora(*args)
     finally:
         with _trava_fala:
             _falando["n"] -= 1
             if _falando["n"] == 0 and _falando["duck"]:
                 _falando["duck"].__exit__(None, None, None)
                 _falando["duck"] = None
+
+
+_tocar_fluxo_sem_duck = falar.tocar_fluxo
+
+
+def _tocar_com_duck(texto):
+    return _com_duck(_tocar_sem_duck, texto)
+
+
+def tocar_fluxo(partes):
+    return _com_duck(_tocar_fluxo_sem_duck, partes)
 
 
 falar.tocar = _tocar_com_duck
@@ -724,7 +736,8 @@ def comando_claude(sessao=False, pergunta=None, sistema_extra=""):
     que fica aberto e recebe as perguntas em stream-json."""
     tarefa = os.path.join(BIN, "tarefa.sh")
     cmd = ["claude", "-p", *([pergunta] if pergunta else []), "--model", MODELO]
-    cmd += (["--input-format", "stream-json", "--output-format", "stream-json", "--verbose"] if sessao
+    cmd += (["--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
+             "--include-partial-messages"] if sessao
             else ["--output-format", "text"])
     return cmd + ["--append-system-prompt", INSTRUCOES + sistema_extra, *SEM_PARTIDA,
                   "--add-dir", os.path.expanduser("~/.claude/cache"),
@@ -794,20 +807,108 @@ def bom_dia_pendente():
     return dt.datetime.now().hour < 12 and not os.path.exists(BOM_DIA_FEITO.format(dia=dt.date.today()))
 
 
+MUSICA_BOM_DIA = config.get("JARVIS_MUSICA_BOM_DIA", "highway to hell")  # vazio: sem música
+
+
+class MusicaDeFundo:
+    """A trilha do bom dia, como no vídeo: começa junto com a saudação e fica baixa enquanto ele fala.
+    Se já estiver tocando alguma coisa, não troca: só abaixa. No fim volta ao volume normal e segue."""
+
+    def __init__(self):
+        self.fim, self.duck = threading.Event(), None
+        if MUSICA_BOM_DIA:
+            threading.Thread(target=self._rodar, daemon=True).start()
+
+    def _rodar(self):
+        e = acao.tocando()
+        if not (e and e["status"] == "Playing"):
+            acao.tocar(MUSICA_BOM_DIA)
+        for _ in range(30):  # o player leva uns segundos para começar, e o som dele mais um pouco
+            e = acao.tocando()
+            tocando = e and e["status"] == "Playing" and acao.abaixar_musica.streams_de_saida()
+            if tocando or self.fim.is_set():
+                break
+            time.sleep(0.5)
+        if tocando and not self.fim.is_set():
+            self.duck = acao.abaixar_musica().__enter__()
+            # o YouTube Music recria o stream ao começar: confere a cada meio segundo até o fim
+            while not self.fim.wait(0.5):
+                self.duck.reaplicar()
+            self.duck.__exit__(None, None, None)
+
+    def acabar(self):
+        self.fim.set()
+
+
+def frases_do_claude(pedido, guardar):
+    """As frases do Claude conforme ele escreve (gerador), para a fala começar pela primeira.
+    guardar(texto inteiro) recebe a resposta no fim."""
+    fila, buf = queue.Queue(), [""]
+
+    def chegou(pedaco):
+        buf[0] += pedaco
+        while True:
+            m = re.search(r"[.!?…](\s+)", buf[0])
+            if not m:
+                break
+            fila.put(buf[0][:m.start() + 1].strip())
+            buf[0] = buf[0][m.end():]
+
+    def rodar():
+        try:
+            guardar(cerebro.perguntar(pedido, ao_escrever=chegou) or "")
+        finally:
+            if buf[0].strip():
+                fila.put(buf[0].strip())
+            fila.put(None)
+
+    # o pedido sai JÁ, não quando alguém pedir a primeira frase: gerador só roda quando é lido,
+    # e o Claude esperava a saudação acabar de tocar para começar (medido: 4,1 s → 1,1 s)
+    threading.Thread(target=rodar, daemon=True).start()
+
+    def entregar():
+        curta = ""
+        while True:
+            frase = fila.get()
+            if frase is None:
+                break
+            curta = f"{curta} {frase}".strip()
+            if len(curta) >= 25:  # frase curta ("Pronto.") vai junto com a seguinte
+                yield curta
+                curta = ""
+        if curta:
+            yield curta
+
+    return entregar()
+
+
 def dar_bom_dia(texto):
+    musica_ = MusicaDeFundo()
     hora = dt.datetime.now().hour
     saudacao = f"{'Bom dia' if hora < 12 else 'Boa tarde' if hora < 18 else 'Boa noite'}, {TRATAMENTO}."
-    falando = threading.Thread(target=falar.tocar, args=(saudacao,))
-    falando.start()  # a saudação sai na hora; o resto o Claude monta enquanto isso
     pedido = PEDIDO_BOM_DIA.format(saudacao=saudacao, dados=briefing.dados())
-    corpo = cerebro.perguntar(pedido) or rodar_claude(comando_claude(pergunta=pedido), "")
-    if not corpo:  # sem Claude: os dados direto, sem estilo
-        corpo = f"{briefing.frase_clima()} {briefing.frase_noticias()}"
-    falando.join()
+    inteiro, faladas = {}, []
+
+    do_claude = frases_do_claude(pedido, lambda t: inteiro.update(texto=t))  # já começa a escrever
+
+    def frases():
+        yield saudacao  # do cache: toca na hora, enquanto o Claude escreve
+        for f in do_claude:
+            faladas.append(f)
+            yield f
+
+    try:
+        tocar_fluxo(frases())
+        if not faladas:  # sem cérebro: o jeito antigo, ou só os dados, sem estilo
+            corpo = rodar_claude(comando_claude(pergunta=pedido), "") or \
+                f"{briefing.frase_clima()} {briefing.frase_noticias()}"
+            faladas.append(corpo)
+            falar.tocar(corpo)
+    finally:
+        musica_.acabar()
     os.makedirs(os.path.dirname(BOM_DIA_FEITO), exist_ok=True)
     open(BOM_DIA_FEITO.format(dia=dt.date.today()), "w").close()
-    notificar(texto, f"{saudacao} {corpo}")  # a oferta do fim fica esperando resposta (continuação)
-    falar.tocar(corpo)
+    notificar(texto, f"{saudacao} {' '.join(faladas)}")  # a oferta do fim fica esperando resposta
     return 0
 
 
