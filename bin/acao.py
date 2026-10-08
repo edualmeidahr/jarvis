@@ -256,8 +256,8 @@ _spec_m.loader.exec_module(musica)
 
 
 def abrir_musica(endereco):
-    """Com a extensão Jarvis Música: troca a faixa na aba do YouTube Music que já está aberta.
-    Sem extensão, ou sem aba aberta: abre o app do YouTube Music (janela nova)."""
+    """Com a extensão Jarvis Música: troca a faixa na aba do YouTube Music que já está aberta, ou
+    abre uma janela minimizada (toca em segundo plano). Sem extensão: abre o app (janela nova)."""
     pausar_o_que_toca(fora_da_musica=True)
     r = musica.pedir({"acao": "tocar", "url": endereco})
     if not (r and r.get("ok") and r.get("aberta")):

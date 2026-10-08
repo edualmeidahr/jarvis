@@ -130,7 +130,15 @@ async function tratar(pedido) {
   }
   const aba = await abaDaMusica();
   if (pedido.acao === "tocar") {
-    if (!aba) return { ok: true, aberta: false };  // sem aba: o Jarvis abre o app do jeito antigo
+    if (!aba) {
+      // sem aba do YouTube Music: abre numa janela JÁ minimizada. A música toca em segundo plano
+      // e nada cobre a tela do Jarvis (antes o app abria por cima dela no bom dia)
+      if (!String(pedido.url || "").startsWith("https://music.youtube.com/")) {
+        return { ok: false, erro: "só endereço do YouTube Music" };
+      }
+      await chrome.windows.create({ url: pedido.url, state: "minimized", focused: false });
+      return { ok: true, aberta: true, como: "janela minimizada" };
+    }
     if (!String(pedido.url || "").startsWith("https://music.youtube.com/")) {
       return { ok: false, erro: "só endereço do YouTube Music" };
     }
