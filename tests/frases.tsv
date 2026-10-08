@@ -1,0 +1,203 @@
+# frase<TAB>esperado — ver tests/rodar.py. Revisado à mão: o esperado é o CERTO, não o de hoje.
+
+# --- Frases reais do voz.log (com o "Jarvis, " que a escuta põe na frente)
+Jarvis, A atualizar o GitLab.	comando atualizar
+Jarvis, A atualiza o GitLab.	comando atualizar
+Jarvis, No Obsidian, marque para amanhã eu tenho uma tarefa de escolher outra if e estudá-la.	claude
+Jarvis, Abrir calculadora.	acao abrir calculadora
+Jarvis, Tocar Bohemia Repsoli no YouTube.	acao tocar bohemia repsoli no youtube
+Jarvis, Tocaar, borrindo o Rappzode do Queen no YouTube.	acao tocar borrindo o rappzode do queen no youtube
+Jarvis, Tocar, Bohemia, Ratisouji no YouTube.	acao tocar bohemia ratisouji no youtube
+Jarvis, Tocar, borrinha, rapzode, no YouTube, do Queen.	acao tocar borrinha rapzode do queen no youtube
+Jarvis, Tocar, borrímia, Rappzode, Queen, YouTube.	acao tocar borrimia rappzode queen no youtube
+Jarvis, Toca Queen, YouTube.	acao tocar queen no youtube
+Jarvis, Tocaar Queen no YouTube.	acao tocar queen no youtube
+Jarvis, Entra no YouTube e toca Love of My Life.	acao tocar love of my life no youtube
+Jarvis, Volume máximo.	acao volume maximo
+Jarvis, Aumenta o volume.	acao volume mais
+Jarvis, JARVIS, para amanhã, cria uma tarefa para eu assumir uma nova issue e adicionar meu cambando a semana.	claude
+Jarvis, Jarvis, corrige o nome da tarefa criada para assumir uma nova if e planejá-la.	claude
+Jarvis, Jarvis, no Obsidian, alterar o nome da tarefa, assumir uma nova eixo e adicionar meu campo da semana para assumir uma nova eixo e planejá-la.	claude
+Jarvis, Assumir uma nova issue e adicionar meu câmbio da semana para assumir uma nova issue e planejá-la.	claude
+Jarvis, Amanhã no Obsidian.	claude
+Jarvis, JARVIS, amanhã tem uma nota no Visidian sobre assumir uma nova Ishwi. Edite essa nota para assumir uma nova Ishwi e planejá-la.	claude
+Jarvis, Abre o YouTube Music e tocar uma playlist de música eletrônica.	acao tocar playlist de musica eletronica no youtube music
+Jarvis, Jarvis, abri o YouTube Music e tocar playlist de música eletrônica.	acao tocar playlist de musica eletronica no youtube music
+Jarvis, Jares, abre o YouTube Music e tocar a playlist de Eletronica.	acao tocar playlist de eletronica no youtube music
+Jarvis, Jarvis, abrir YouTube Music e tocar playlist de eletrônica.	acao tocar playlist de eletronica no youtube music
+Jarvis, JARVIS, abrir YouTube Music.	acao abrir youtube music
+Jarvis, Agora toca em uma playlist de música eletrônica.	acao tocar playlist de musica eletronica
+Jarvis, Jarvis, tocar playlist, música eletrônica no YouTube Music.	acao tocar playlist musica eletronica no youtube music
+Jarvis, Jarvis, abriu a calculadora.	acao abrir a calculadora
+Jarvis, Jairvis, qual minha próxima reuniã amanhã?	claude
+Jarvis, Toca Playlist de Detronica no YouTube Music.	acao tocar playlist de detronica no youtube music
+Jarvis, Toca playlist de eletrônica no YouTube Music.	acao tocar playlist de eletronica no youtube music
+Jarvis, Próxima musica, YouTube musica.	acao midia proxima
+Jarvis, Jarvis. Crasna música no YouTube Music.	claude
+Jarvis, Toca o vintage filter no YouTube Music.	acao tocar vintage filter no youtube music
+Jarvis, Tocar vintage, culturally, no YouTube Music.	acao tocar vintage culturally no youtube music
+Jarvis, Próxima.	acao midia proxima
+Jarvis, Volume 7.	acao volume 7
+Jarvis, Tocar love of my life.	acao tocar love of my life
+Jarvis, Volume 10.	acao volume 10
+Jarvis, Ajares.	comando oi
+Jarvis, Hey, JArvis.	comando oi
+Jarvis, Ei, Jarvis.	comando oi
+Jarvis, Eja vis.	comando oi
+Jarvis, Jairvis, qual a próxima reunião?	comando proxima
+Jarvis, EjaVis.	comando oi
+Jarvis, O que temos para hoje?	comando hoje
+Jarvis, Rode novamente o script de manhã.	comando atualizar
+Jarvis, Atoaliza.	claude
+Jarvis, Jodar manhã.	claude
+Jarvis, Bom dia.	comando bom_dia
+Jarvis, Abrir YouTube Music e tocar Highway to Hell.	acao tocar highway to hell no youtube music
+Jarvis, Páner.	claude
+Jarvis, Pauser.	acao midia pausar
+Jarvis, Pauser, música.	acao midia pausar
+Jarvis, Pausar YouTube Music.	acao midia pausar
+Jarvis, Tocar, intercept, dispousar.	acao tocar intercept dispousar
+Jarvis, Continuar tocando.	acao midia continuar
+Jarvis, Valzar música.	claude
+Jarvis, Pausair.	acao midia pausar
+Jarvis, Consegue olhar no WhatsApp quem me mandou o mensagem hoje?	claude
+Jarvis, Doca, highway to hell.	acao tocar highway to hell
+Jarvis, Vol. 4.	acao volume 4
+Jarvis, Toca em metalica.	acao tocar metalica
+Jarvis, Próxima reuniã.	comando proxima
+Jarvis, Tocar, TNT, ACDC.	acao tocar tnt acdc
+Jarvis, Tocar Vintage Culture.	acao tocar vintage culture
+Jarvis, Vol. 3.	acao volume 3
+Jarvis, Toca.	acao midia continuar
+Jarvis, Entrar na chamada.	claude
+Jarvis, Tocar Marcelo Carvalho, entercendo-me.	acao tocar marcelo carvalho entercendo me
+Jarvis, Pausar música.	acao midia pausar
+Jarvis, Abre-se o neão, review.	claude
+Jarvis, Isso mesmo. Abrir reunião, review.	claude
+Jarvis, Qual o clima para amanhã?	claude
+Jarvis, Toca é Brunimahoni.	acao tocar brunimahoni
+Jarvis, Socar, Bruno Lee.	acao tocar bruno lee
+Jarvis, Tocar.	acao midia continuar
+Jarvis, Lócar, Bruno e Maroni.	acao tocar bruno e maroni
+Jarvis, Tocar, Bruno e Manon.	acao tocar bruno e manon
+Jarvis, Toca Bruno e Marrone.	acao tocar bruno e marrone
+Jarvis, Tocar Teodoro e Sampaio.	acao tocar teodoro e sampaio
+Jarvis, Tocar beijuteria.	acao tocar beijuteria
+Jarvis, Toca Teodoro & Sampaio.	acao tocar teodoro sampaio
+Jarvis, Tocar matuê.	acao tocar matue
+Jarvis, Voluminosa Novi.	claude
+Jarvis, Rengervis.	comando oi
+Jarvis, Tocar highway to hell.	acao tocar highway to hell
+Jarvis, Volume 3.	acao volume 3
+Jarvis, Tocar Lonely Day.	acao tocar lonely day
+Jarvis, Me lembra daqui 18 minutos e tirar os ovos.	lembrete em 1080
+Jarvis, Rage Arvis.	comando oi
+Jarvis, O que eu te pedi de lembrete?	claude
+Jarvis, O que tem na tela?	claude
+Jarvis, Catandante da Zito Frentei. Você é pai? Viado.	claude
+Jarvis, Tocar Nirvana.	acao tocar nirvana
+Jarvis, Playlist Dezils, Vintage Culture.	claude
+Jarvis, Não, tudo bem. Agora só aumente para volume 7.	acao volume 7
+Jarvis, Toca Playlist. Root Class.	acao tocar playlist root class
+Jarvis, Tocar Playlist. Rock.	acao tocar playlist rock
+Jarvis, O que tem na tela? O que tem na tela?	claude
+Jarvis, Docar, Queen.	acao tocar queen
+Jarvis, Tocar, we will rock you.	acao tocar we will rock you
+Jarvis, Tocar, Megabyte do Areios.	acao tocar megabyte do areios
+Jarvis, Hazel,	claude
+Jarvis, Eu pedi para tocar Megabyte do Areias e mudar para o volume 10.	claude
+Jarvis, É para tocar Megabyte do Areias.	acao tocar megabyte do areias
+Jarvis, Não é megabyte, é megabyte-lib do Areias.	claude
+Jarvis, Pode tocar alguma playlist de funk de 2006.	acao tocar playlist de funk de 2006
+Jarvis, Muitas vezes.	claude
+Jarvis, Procure uma playlist que tenha no nome funk e	claude
+Jarvis, Meryvinsays.	claude
+Jarvis, 2.026.	claude
+Jarvis, Tocar Playlist Funky 2026.	acao tocar playlist funky 2026
+Jarvis, Tocar, você tinha criminosa.	acao tocar voce tinha criminosa
+Jarvis, É bocetinha criminosa.	claude
+Jarvis, Seixamento.	claude
+Jarvis, Rodabe Script Fechamento. A Skill.	claude
+
+# --- Sem "Jarvis": pelo Insert. Frase comum tem que continuar sendo ditado
+Bom dia pessoal, tudo bem?	ditado
+Oi pessoal, subi o MR com a correção	ditado
+Tem que ver isso com o tester amanhã	ditado
+Toca no assunto com ele amanhã	ditado
+Abre o arquivo de config e muda a porta	ditado
+Volta pra mim amanhã	ditado
+Pessoal, qual o status do MR? Preciso subir hoje ainda.	ditado
+No Obsidian, crie uma tarefa pra amanhã	ditado
+Me lembra de comprar pão	ditado
+Lembra que amanhã tem reunião	ditado
+
+# --- Comandos curtos sem "Jarvis"
+Resume essa página	claude
+Me resume essa aba	claude
+Traduz isso pra inglês	traduzir ingles
+Me lembra em 10 minutos de beber água	lembrete em 600
+Bom dia	comando bom_dia
+Abre o Obsidian	acao abrir o obsidian
+Abra o VS Codium.	acao abrir o vs codium
+Abre o WhatsApp	acao abrir o whatsapp
+Pausa	acao midia pausar
+Pausa a música.	acao midia pausar
+Continua	acao midia continuar
+Aumenta o volume	acao volume mais
+Abaixa um pouco o som	acao volume menos
+Mais alto	acao volume mais
+Volume 5	acao volume 5
+Volume cinco	acao volume 5
+Volume no máximo	acao volume maximo
+Volume 70%	acao volume 70
+O que está tocando?	acao agora agora
+Que música é essa?	acao agora agora
+Quem canta essa?	acao agora agora
+Muta	acao volume mudo
+Próxima reunião	comando proxima
+Atualiza o GitLab	comando atualizar
+Roda o script da manhã	comando atualizar
+Puxa os dados do gitlab	comando atualizar
+Toca Love of My Life no YouTube	acao tocar love of my life no youtube
+Toca playlist eletrônica no YouTube Music.	acao tocar playlist eletronica no youtube music
+Entre no YouTube e toque Love of My Life.	acao tocar love of my life no youtube
+
+# --- Com "Jarvis": testes desta conversa
+Jarvis, toca Bohemian Rhapsody	acao tocar bohemian rhapsody
+Jarvis, toca Love of My Life	acao tocar love of my life
+Jarvis, focar no trabalho	claude
+Jarvis, trocar a música	claude
+Jarvis, toda sexta às 17 horas me lembra de lançar as horas	claude
+Jarvis, me lembra daqui a 20 minutos de tirar o café.	lembrete em 1200
+Jarvis, me lembra em meia hora de ligar pro suporte	lembrete em 1800
+Jarvis, daqui a vinte e cinco minutos me avisa que a pizza chegou	lembrete em 1500
+Jarvis, me lembra às 15 horas de revisar o MR	lembrete as 15:00
+Jarvis, me lembra às três e meia da tarde de fazer a planning	lembrete as 15:30
+Jarvis, timer de 5 minutos	lembrete em 300
+Jarvis, lembra que a senha do Wi-Fi da sala é Jarvis123	memorizar
+Jarvis, esquece a senha do wi-fi	esquecer
+Jarvis, obrigado	encerrar
+Jarvis, deixa pra lá	encerrar
+Jarvis, para	acao midia pausar
+Jarvis, traduz isso	traduzir auto
+Jarvis, traduz o que eu selecionei para o espanhol	traduzir espanhol
+Jarvis, o que tem na minha tela?	claude
+Jarvis, o que é esse erro?	claude
+Jarvis, e depois dela?	claude
+Jarvis, resume essa página	claude
+Jarvis, o que essa issue pede?	claude
+Jarvis, abre o MR 202	claude
+Jarvis, qual a previsão do tempo amanhã?	claude
+Jarvis, no Obsidian crie uma tarefa pra amanhã	claude
+Jarvis, renomeia a tarefa assumir issue para Planejar a issue nova	claude
+Jarvis, Ei Jarvis, próxima	acao midia proxima
+Jarvis, atualiza o GitLab.	comando atualizar
+Jarvis, Pausar música.	acao midia pausar
+Jarvis, Vol. 4.	acao volume 4
+Jarvis, Toca em metalica.	acao tocar metalica
+Jarvis, Lócar, Bruno e Maroni.	acao tocar bruno e maroni
+Jarvis, Socar, Bruno Lee.	acao tocar bruno lee
+Jarvis, Toca é Brunimahoni.	acao tocar brunimahoni
+Jarvis, Abrir YouTube Music e tocar Highway to Hell.	acao tocar highway to hell no youtube music
+Jarvis, Próxima reuniã.	comando proxima
+Jarvis, aumenta o volume	acao volume mais
