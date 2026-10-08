@@ -89,6 +89,8 @@ python_venv() {
   "$DADOS/venv/bin/python" -c "from openwakeword.utils import download_models; download_models(['hey_jarvis'])" >/dev/null
   # reconhecedor do "Ei Jarvis": Parakeet v3 pelo sherpa-onnx (0,4-1 s por pedido; o Whisper levava 3-4 s)
   "${pip[@]}" -q sherpa-onnx
+  # voz: piper-tts (aceita fonemas no meio do texto) e wordfreq (acha as palavras em inglês: ingles.py)
+  "${pip[@]}" -q piper-tts wordfreq
   local stt="$DADOS/stt/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8"
   if [ ! -f "$stt/encoder.int8.onnx" ]; then
     mkdir -p "$DADOS/stt"

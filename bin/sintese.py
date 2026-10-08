@@ -38,6 +38,50 @@ def _modulo(nome):
 
 falar = _modulo("falar")    # os parâmetros da voz moram lá: uma fonte só
 timbre = _modulo("timbre")
+try:
+    ingles = _modulo("ingles")  # trechos em inglês com sotaque brasileiro (precisa do piper-tts e do wordfreq)
+except Exception:
+    ingles = None
+
+
+class PiperPython:
+    """A mesma voz pelo piper-tts (Python), que aceita fonemas no meio do texto ([[ ... ]]): é o que
+    deixa falar "issue" e "Highway to Hell" em inglês. Mesmos parâmetros do Piper de linha de comando."""
+
+    def __init__(self):
+        from piper import PiperVoice, SynthesisConfig
+        self.voz = PiperVoice.load(falar.VOZ)
+        self.config = SynthesisConfig(length_scale=falar.VELOCIDADE * falar.TOM, noise_scale=float(falar.TIMBRE),
+                                      noise_w_scale=float(falar.RITMO))
+        self.pausa = float(falar.PAUSA)
+
+    def sintetizar(self, texto, saida):
+        if ingles:
+            try:
+                texto = ingles.marcar(texto)
+            except Exception:
+                pass  # sem o inglês, a frase sai como antes
+        taxa, partes = self.voz.config.sample_rate, []
+        silencio = bytes(2 * int(taxa * self.pausa))
+        for pedaco in self.voz.synthesize(texto, self.config):
+            partes += [pedaco.audio_int16_bytes, silencio]  # a pausa entre frases do --sentence_silence
+        if not partes:
+            return False
+        with wave.open(saida, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(taxa)
+            w.writeframes(b"".join(partes))
+        return True
+
+
+def abrir_voz(pasta):
+    """O piper-tts quando dá (com inglês); senão o Piper de linha de comando, como antes."""
+    try:
+        return PiperPython()
+    except Exception as e:
+        print(f"piper-tts indisponível ({e}): sigo com o Piper de linha de comando", flush=True)
+        return Piper(pasta)
 
 
 class Piper:
@@ -82,7 +126,7 @@ def aplicar_timbre(cru, saida, primeira):
 
 def servir():
     pasta = tempfile.mkdtemp(prefix="jarvis-fala-", dir=os.path.dirname(SOCKET))
-    piper, vez = Piper(pasta), threading.Lock()
+    piper, vez = abrir_voz(pasta), threading.Lock()
     with vez:  # aquece: a primeira frase não paga a carga do modelo
         piper.sintetizar("Pronto.", os.path.join(pasta, "aquece.wav"))
     try:

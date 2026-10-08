@@ -197,7 +197,10 @@ CACHE_FALAS = os.path.expanduser("~/.cache/jarvis/falas")
 def _assinatura():
     """Muda quando a voz muda: frase guardada de uma voz antiga não pode tocar."""
     partes = [VOZ, str(VELOCIDADE), PAUSA, RITMO, TIMBRE, str(TOM)]
-    for f in (VOZ, TIMBRE_PY, DICIONARIO):
+    # ingles.py e ingles.txt: o jeito de falar inglês também muda o som (sintese.py)
+    ingles = (os.path.join(os.path.dirname(os.path.abspath(__file__)), "ingles.py"),
+              os.path.expanduser("~/.config/jarvis/ingles.txt"))
+    for f in (VOZ, TIMBRE_PY, DICIONARIO, *ingles):
         try:
             partes.append(str(os.path.getmtime(f)))
         except OSError:

@@ -53,6 +53,8 @@ CAUDA_DO_NOME_S = 1.5        # depois de acordar, a fala só conta como pedido d
                              # (o fim do "Jarvis"); emendado sem pausa, conta depois deste tempo
 CONTINUACAO_S = 5.0
 FALA_MINIMA_CONTINUACAO_S = 0.5  # na continuação, menos voz que isso é ruído, não pedido
+FALA_MINIMA_CHAMADA_S = 0.2      # na chamada, "Não." e "Sim." são resposta: em 08/10 um "Não" de 0,4 s
+                                 # foi jogado fora como ruído e o fechamento do dia desligou no meio
 MAX_CONTINUACOES = 2             # respostas emendadas sem "Ei Jarvis": depois disso, só chamando de novo
 SEM_SOM_S = 5.0              # o microfone manda 16 mil amostras por segundo: 5 s sem nada = travou
 VOZ_LIMITE_S = 150           # um pedido (transcrever + Claude + falar) não passa disso
@@ -165,21 +167,34 @@ def carregar_stt():
         return None
 
 
+# o Parakeet decide a língua sozinho, e em fala curta às vezes escorrega para o inglês (visto nos
+# pedidos reais de 08/10): "Tocar" → "To car", "Sim" → "See?", "Não, …" → "No, …"
+ESCORREGOES = [(re.compile(r"^to ?car\b", re.I), "Tocar"), (re.compile(r"^see\??\.?$", re.I), "Sim."),
+               (re.compile(r"^no(?=[,.!?]|$)", re.I), "Não")]
+
+
 def ajustar_texto(texto):
     """O jeito do Parakeet escrever, trazido para o que o jarvis.py espera."""
-    return re.sub(r"\bMr\.?(?=\s|$)", "MR", texto).strip()
+    texto = re.sub(r"\bMr\.?(?=\s|$)", "MR", texto).strip()
+    for padrao, certo in ESCORREGOES:
+        texto = padrao.sub(certo, texto, count=1)
+    return texto
 
 
 # fim que pede continuação: "toca a música de…", "abre o…", "e…"
 INCOMPLETA = re.compile(r"\b(e|ou|mas|de|da|do|das|dos|que|pra|para|com|o|a|os|as|um|uma|no|na|em|"
-                        r"tipo|é|porque|quando|se|sobre|qual|quanto|me|meu|minha)$")
+                        r"tipo|é|porque|quando|se|sobre|qual|quanto|me|meu|minha|"
+                        r"the|of|to|and|in|on|my|your|for|with)$")  # título em inglês pela metade: "Fear of the"
+# pedido de música: o nome vem devagar, com pausa para lembrar ("Tocar Bruno… e Marrone"). Em 08/10 o
+# fim de turno de 0,6 s cortou "Tocar Bruno" e "Tocar Fear of the": esses esperam o silêncio inteiro
+MUSICA = re.compile(r"^(toca|tocar|toque|coloca|coloque|bota|bote|poe|põe|ponha)\b")
 
 
 def parece_completa(texto):
     """A frase transcrita até a pausa parece acabada? Palavra só ("toca…") e fim em vírgula,
     artigo ou conjunção esperam o silêncio inteiro."""
     t = texto.strip().lower()
-    if t.endswith((",", "-", "…")) or len(t.split()) < 2:
+    if t.endswith((",", "-", "…")) or len(t.split()) < 2 or MUSICA.match(t):
         return False
     return not INCOMPLETA.search(t.rstrip(" .!?"))
 
@@ -243,7 +258,7 @@ class Escuta:
                 self.limpo, self.sem_eco, self.bloco_limpo = None, False, None
         return bloco
 
-    def ouvir_pedido(self, mic, espera_s=ESPERA_FALA_S, continuacao=False):
+    def ouvir_pedido(self, mic, espera_s=ESPERA_FALA_S, continuacao=False, fala_minima_s=FALA_MINIMA_CONTINUACAO_S):
         """Grava do microfone até você parar de falar. Devolve as amostras, ou None se não falou.
         continuacao: sem "Ei Jarvis" antes (continuação ou chamada), então não há nome para pular."""
         blocos, falou, silencio, inicio = [], False, 0.0, time.time()
@@ -293,7 +308,7 @@ class Escuta:
                 gravar_wav(np.concatenate(blocos[-int(espera_s / passo):]), os.path.join(EST, "ninguem.wav"))
                 return None
             if falou and (silencio >= SILENCIO_FIM_S or (completa and silencio >= SILENCIO_COMPLETA_S)):
-                if continuacao and fala_s < FALA_MINIMA_CONTINUACAO_S:
+                if continuacao and fala_s < fala_minima_s:
                     return None  # na continuação, um "hum" ou um ruído curto não vira pedido
                 self.fim_fala = time.time() - silencio
                 if especula is not None:
@@ -406,7 +421,7 @@ class Escuta:
         estado.marcar("ouvindo", "chamada" if chamada else "continuação" if continuacao else "")
         if chamada:  # a música já está baixa pela chamada inteira
             silencio = FECHAMENTO_SILENCIO_S if self.tipo_chamada() == "fechamento" else CHAMADA_SILENCIO_S
-            amostras = self.ouvir_pedido(mic, silencio, continuacao=True)
+            amostras = self.ouvir_pedido(mic, silencio, continuacao=True, fala_minima_s=FALA_MINIMA_CHAMADA_S)
         else:
             with acao.abaixar_musica(0.15):  # com a música alta, o VAD nunca ouve o silêncio do fim
                 amostras = self.ouvir_pedido(mic, CONTINUACAO_S if continuacao else ESPERA_FALA_S, continuacao)

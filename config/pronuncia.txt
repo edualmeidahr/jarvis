@@ -26,3 +26,7 @@ checkin = tchéquin
 KR = cá érre
 growth = grôuf
 sharing = xérin
+
+# Nomes que o inglês automático (ingles.py) lê errado — palpites de 08/10:
+Avicii = avítchi
+AC/DC = êi ci dí ci

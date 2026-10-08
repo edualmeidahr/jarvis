@@ -1,0 +1,17 @@
+# Palavras que a voz fala SEMPRE em inglês (com sotaque brasileiro), uma por linha.
+# Só o que a detecção automática não pega: marcas e nomes comuns nas duas línguas
+# (Spotify, playlist). "issue", "threads", "deploy" e títulos de música em inglês ela já pega.
+# Para ajustar o SOM de uma palavra, use o pronuncia.txt: ele vem antes e ganha.
+spotify
+playlist
+playlists
+youtube
+music
+coldplay
+linkin
+park
+queen
+google
+chrome
+obsidian
+whatsapp
