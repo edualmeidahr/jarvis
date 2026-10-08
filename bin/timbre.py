@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Dá corpo à voz do Jarvis: o WAV do Piper entra cru e sai mais grave, cheio e firme.
 
-    timbre.py ENTRADA.wav SAIDA.wav
+    timbre.py ENTRADA.wav SAIDA.wav [--sem-folga]
+
+--sem-folga: sem o silêncio da frente. A partir da segunda frase de uma fala a placa de som já
+está acordada, e a folga só abriria um buraco entre as frases.
 
 Escolhido de ouvido em 07/10 (a "Seis C, mais rápida"), entre variações da Faber. O tom
 desce pela taxa de amostragem: o falar.py já pede ao Piper uma fala TOM vezes mais curta,
@@ -36,7 +39,7 @@ def _suavizar(env, sr, corte=25.0):
     return np.fft.irfft(np.fft.rfft(env, n) * np.fft.rfft(k, n), n)[: len(env)]
 
 
-def processar(x, sr):
+def processar(x, sr, folga=True):
     f = np.fft.rfftfreq(len(x), 1 / sr)
     f[0] = 1e-3
     banda = _passa_baixa(f, 400, 2) * (1 - _passa_baixa(f, 120, 2))  # 120–400 Hz: corpo
@@ -49,7 +52,7 @@ def processar(x, sr):
         d = int(sr * atraso)
         y[d:] += ganho * y[:-d]
     y = y / max(1.0, np.abs(y).max() / 29000)
-    return np.concatenate([np.zeros(int(sr * FOLGA_S)), y])
+    return np.concatenate([np.zeros(int(sr * FOLGA_S)), y]) if folga else y
 
 
 def main():
@@ -57,7 +60,7 @@ def main():
     with wave.open(entrada) as w:
         sr = w.getframerate()
         x = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32)
-    y = processar(x, sr)
+    y = processar(x, sr, folga="--sem-folga" not in sys.argv)
     with wave.open(saida, "wb") as o:
         o.setnchannels(1)
         o.setsampwidth(2)

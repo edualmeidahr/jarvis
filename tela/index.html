@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J.A.R.V.I.S</title>
+<style>
+  /* A tela do Jarvis. Servida por bin/tela.py em 127.0.0.1; pergunta /dados a cada meio segundo.
+     Esfera no centro (a cor diz o estado), cartões em volta (acendem quando ele fala do assunto),
+     legenda embaixo (a frase que está sendo falada). */
+  :root {
+    --fundo: #050b16;
+    --fundo-2: #0a1528;
+    --cartao: rgba(14, 32, 58, 0.62);
+    --borda: rgba(110, 190, 255, 0.16);
+    --texto: #e6f1ff;
+    --texto-2: #9fb6d1;
+    --texto-3: #5f7795;
+    /* um tom por estado: é a única cor que significa alguma coisa na tela */
+    --parado: #4fb3ff;
+    --ouvindo: #2f8cff;
+    --pensando: #f2b33d;
+    --falando: #36d39a;
+    --acento: var(--parado);
+    --brilho: rgba(79, 179, 255, 0.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 45%, var(--fundo-2) 0%, var(--fundo) 70%);
+    color: var(--texto);
+    font: 15px/1.35 "Inter", "Cantarell", "Ubuntu", system-ui, sans-serif;
+    overflow: hidden;
+    cursor: none;
+  }
+  body.ouvindo  { --acento: var(--ouvindo);  --brilho: rgba(47, 140, 255, 0.45); }
+  body.pensando { --acento: var(--pensando); --brilho: rgba(242, 179, 61, 0.40); }
+  body.falando  { --acento: var(--falando);  --brilho: rgba(54, 211, 154, 0.40); }
+
+  /* grade fina de fundo, como um painel de instrumentos */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(110,190,255,.035) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(110,190,255,.035) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .tela {
+    position: relative; height: 100vh; padding: 28px 36px 24px;
+    display: grid; gap: 22px;
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.35fr) minmax(260px, 1fr);
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "topo topo topo" "esq centro dir" "legenda legenda legenda";
+  }
+
+  /* topo: relógio à esquerda, nome no meio, estado à direita */
+  .topo { grid-area: topo; display: flex; align-items: flex-start; justify-content: space-between; }
+  .relogio .hora { font-size: 54px; font-weight: 200; letter-spacing: 2px; font-variant-numeric: tabular-nums; }
+  .relogio .data { color: var(--texto-2); margin-top: 2px; }
+  .marca { text-align: center; letter-spacing: 10px; font-weight: 300; font-size: 20px; color: var(--texto-2); padding-top: 10px; }
+  .marca b { color: var(--texto); font-weight: 600; }
+  .situacao { text-align: right; padding-top: 10px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px;
+    border: 1px solid var(--borda); background: var(--cartao); color: var(--texto); font-size: 14px;
+  }
+  .chip i { width: 9px; height: 9px; border-radius: 50%; background: var(--acento); box-shadow: 0 0 10px var(--acento); }
+  .situacao .sub { color: var(--texto-3); font-size: 13px; margin-top: 6px; }
+
+  .coluna { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+  .esq { grid-area: esq; } .dir { grid-area: dir; }
+
+  /* cartões */
+  .cartao {
+    position: relative; padding: 16px 18px; border-radius: 14px; background: var(--cartao);
+    border: 1px solid var(--borda); backdrop-filter: blur(6px);
+    transition: border-color .4s, box-shadow .4s, transform .4s, opacity .4s;
+  }
+  .cartao h3 {
+    font-size: 11px; font-weight: 600; letter-spacing: 2.2px; text-transform: uppercase;
+    color: var(--texto-3); margin-bottom: 10px; display: flex; justify-content: space-between;
+  }
+  .cartao.aceso { border-color: var(--acento); box-shadow: 0 0 0 1px var(--acento), 0 0 28px var(--brilho); transform: scale(1.025); }
+  .cartao.vazio { opacity: .55; }
+  .numero { font-size: 46px; font-weight: 200; line-height: 1; font-variant-numeric: tabular-nums; }
+  .numero small { font-size: 18px; color: var(--texto-2); margin-left: 2px; }
+  .linha { display: flex; justify-content: space-between; gap: 12px; color: var(--texto-2); margin-top: 8px; font-size: 14px; }
+  .linha b { color: var(--texto); font-weight: 500; }
+  ul.lista { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  ul.lista li { color: var(--texto-2); font-size: 14px; display: flex; gap: 10px; }
+  ul.lista li .h { color: var(--texto); font-variant-numeric: tabular-nums; min-width: 44px; }
+  ul.lista li.agora .h::after { content: " ●"; color: var(--acento); }
+  .noticia { color: var(--texto); font-size: 14px; padding: 8px 0; border-top: 1px solid var(--borda); }
+  .noticia:first-of-type { border-top: 0; padding-top: 0; }
+  .noticia span { display: block; color: var(--texto-3); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px; }
+  .musica { color: var(--texto); font-size: 15px; }
+  .musica .onde { color: var(--texto-3); font-size: 12px; margin-top: 4px; }
+
+  /* centro: a esfera */
+  .centro { grid-area: centro; position: relative; display: grid; place-items: center; min-height: 0; }
+  canvas#esfera { width: min(100%, 58vh); aspect-ratio: 1; }
+  .rotulo-centro {
+    position: absolute; bottom: 4%; left: 0; right: 0; text-align: center;
+    color: var(--texto-3); font-size: 11px; letter-spacing: 6px; text-transform: uppercase;
+  }
+
+  /* legenda: a frase que ele está falando */
+  .legenda {
+    grid-area: legenda; min-height: 64px; display: grid; place-items: center; text-align: center;
+    font-size: 26px; font-weight: 300; color: var(--texto); padding: 0 10%;
+    text-shadow: 0 0 18px rgba(0,0,0,.6); transition: opacity .3s;
+  }
+  .legenda.some { opacity: 0; }
+
+  @media (max-width: 900px) {
+    .tela { grid-template-columns: 1fr; grid-template-areas: "topo" "centro" "esq" "dir" "legenda"; overflow-y: auto; height: auto; }
+    body { overflow: auto; }
+  }
+  @media (prefers-reduced-motion: reduce) { .cartao { transition: none; } }
+</style>
+</head>
+<body>
+<div class="tela">
+  <header class="topo">
+    <div class="relogio"><div class="hora" id="hora">--:--</div><div class="data" id="data"></div></div>
+    <div class="marca"><b>J.A.R.V.I.S</b></div>
+    <div class="situacao">
+      <span class="chip"><i></i><span id="estado">Em espera</span></span>
+      <div class="sub" id="escuta"></div>
+    </div>
+  </header>
+
+  <section class="coluna esq">
+    <article class="cartao" id="c-clima" data-assunto="clima">
+      <h3><span>Clima</span><span id="cidade"></span></h3>
+      <div class="numero" id="temp">--<small>°C</small></div>
+      <div class="linha"><span id="ceu">—</span></div>
+      <div class="linha"><span>Hoje</span><b id="minmax">—</b></div>
+      <div class="linha"><span>Chance de chuva</span><b id="chuva">—</b></div>
+    </article>
+    <article class="cartao" id="c-agenda" data-assunto="agenda">
+      <h3><span>Agenda de hoje</span></h3>
+      <ul class="lista" id="reunioes"></ul>
+    </article>
+    <article class="cartao" id="c-lembretes" data-assunto="lembretes">
+      <h3><span>Lembretes</span></h3>
+      <ul class="lista" id="lembretes"></ul>
+    </article>
+  </section>
+
+  <section class="centro">
+    <canvas id="esfera" width="800" height="800" aria-hidden="true"></canvas>
+    <div class="rotulo-centro" id="rotulo">em espera</div>
+  </section>
+
+  <section class="coluna dir">
+    <article class="cartao" id="c-trabalho" data-assunto="trabalho">
+      <h3><span>Trabalho</span></h3>
+      <ul class="lista" id="trabalho"></ul>
+    </article>
+    <article class="cartao" id="c-musica" data-assunto="musica">
+      <h3><span>Tocando</span></h3>
+      <div class="musica" id="musica">—</div>
+    </article>
+    <article class="cartao" id="c-noticias" data-assunto="noticias">
+      <h3><span>Notícias</span><span id="melhorias"></span></h3>
+      <div id="noticias"></div>
+    </article>
+  </section>
+
+  <footer class="legenda some" id="legenda"></footer>
+</div>
+
+<script>
+// ------------------------------------------------------------------ dados
+const NOMES = { parado: "Em espera", ouvindo: "Ouvindo", pensando: "Pensando", falando: "Falando" };
+// o assunto da frase falada acende o cartão; a ordem importa (a primeira que casar ganha)
+const ASSUNTOS = [
+  ["clima", /\b(graus?|chuva|chover|clima|temperatura|c[eé]u|nublad|ensolarad|garoa|frio|calor|guarda-chuva)/i],
+  ["agenda", /\b(reuni[aã]o|reuni[õo]es|daily|planning|review|agenda|compromisso)/i],
+  ["trabalho", /\b(MR|merge|thread|threads|gitlab|tarefa|tarefas|issue)/i],
+  ["musica", /\b(tocando|m[uú]sica|playlist|faixa|volume)/i],
+  ["noticias", /\b(not[ií]cias?|manchete|melhorias?)/i],
+  ["lembretes", /\b(lembrete|lembrar|lembro|rotina)/i],
+];
+const $ = (id) => document.getElementById(id);
+let estado = "parado";
+
+function texto(el, valor) { if (el.textContent !== valor) el.textContent = valor; }
+
+function lista(el, itens, vazio) {
+  const html = itens.length ? itens.join("") : `<li>${vazio}</li>`;
+  if (el.innerHTML !== html) el.innerHTML = html;
+  el.closest(".cartao").classList.toggle("vazio", !itens.length);
+}
+
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function desenhar(d) {
+  estado = d.estado in NOMES ? d.estado : "parado";
+  document.body.className = estado;
+  texto($("estado"), NOMES[estado]);
+  texto($("rotulo"), estado === "parado" ? "em espera" : NOMES[estado].toLowerCase());
+  texto($("escuta"), d.escuta ? "diga “Ei Jarvis”" : "escuta desligada — use o Insert");
+
+  // legenda e cartão aceso
+  const frase = estado === "falando" ? d.detalhe : "";
+  texto($("legenda"), frase);
+  $("legenda").classList.toggle("some", !frase);
+  const assunto = frase ? (ASSUNTOS.find(([, re]) => re.test(frase)) || [null])[0] : null;
+  document.querySelectorAll(".cartao").forEach((c) => c.classList.toggle("aceso", c.dataset.assunto === assunto));
+
+  // clima
+  if (d.clima) {
+    const a = d.clima.agora, dia = d.clima.dias;
+    texto($("cidade"), d.clima.cidade || "");
+    $("temp").innerHTML = `${Math.round(a.temperature_2m)}<small>°C</small>`;
+    texto($("ceu"), CEU[a.weather_code] || "");
+    texto($("minmax"), `${Math.round(dia.temperature_2m_min[0])}° – ${Math.round(dia.temperature_2m_max[0])}°`);
+    texto($("chuva"), `${dia.precipitation_probability_max[0]}%`);
+  }
+  lista($("reunioes"), (d.reunioes || []).map((r) =>
+    `<li class="${r.agora ? "agora" : ""}"><span class="h">${esc(r.hora)}</span><span>${esc(r.titulo)}</span></li>`),
+    "Nenhuma reunião pela frente");
+  lista($("lembretes"), (d.lembretes || []).slice(0, 4).map((l) => {
+    const [desc, quando] = l.split(" — ").length > 1 ? [l.slice(0, l.lastIndexOf(" — ")), l.slice(l.lastIndexOf(" — ") + 3)] : [l, ""];
+    return `<li><span class="h">${esc(quando.split(" ").pop())}</span><span>${esc(desc.replace(/^(Lembrete|Rotina( \(comando\))?): /, ""))}</span></li>`;
+  }), "Nenhum lembrete");
+  // "MR 202 (3 thread(s) aberta(s), 1 na vez dele)" é o texto para o Claude; aqui, mais curto
+  const mr = (t) => t.replace(/^MR (\d+) \((\d+) thread\(s\) aberta\(s\), (\d+) na vez dele\)$/, (_, n, a, v) =>
+    `MR ${n} · ${a === "0" ? "sem threads abertas" : `${a} thread${a === "1" ? "" : "s"} aberta${a === "1" ? "" : "s"}`}${v !== "0" ? ` · ${v} esperando você` : ""}`);
+  const trabalho = [...(d.mrs || []).map(mr), ...(d.reviews || []).map((r) => "Review: " + r), ...(d.tarefas || []).slice(0, 3)]
+    .map((t) => `<li><span>${esc(t.replace(/ — \S+ \d{4}-\d\d-\d\d$/, ""))}</span></li>`);
+  lista($("trabalho"), trabalho, "Nada pendente");
+  const m = (d.tocando || "").replace(/^Está tocando /, "").replace(/^Está pausado: /, "⏸ ");
+  const onde = m.match(/ no (YouTube Music|Chrome|YouTube)\.?$/);
+  $("musica").innerHTML = m && !/^Não tem nada/.test(m)
+    ? `${esc(m.replace(/ no (YouTube Music|Chrome|YouTube)\.?$/, ""))}<div class="onde">${esc(onde ? onde[1] : "")}</div>`
+    : `<span style="color:var(--texto-3)">Nada tocando</span>`;
+  const ns = (d.noticias || []).map((n) => `<div class="noticia"><span>${esc(n.tema)}</span>${esc(n.titulo)}</div>`).join("");
+  if ($("noticias").innerHTML !== ns) $("noticias").innerHTML = ns || `<div class="noticia" style="color:var(--texto-3)">Sem notícias</div>`;
+  texto($("melhorias"), d.melhorias ? `${d.melhorias} melhorias desde ontem` : "");
+}
+
+const CEU = { 0: "Céu limpo", 1: "Quase sem nuvens", 2: "Parcialmente nublado", 3: "Nublado", 45: "Neblina", 48: "Neblina",
+  51: "Garoa fraca", 53: "Garoa", 55: "Garoa forte", 61: "Chuva fraca", 63: "Chuva", 65: "Chuva forte", 80: "Pancadas de chuva",
+  81: "Pancadas de chuva", 82: "Temporal", 95: "Tempestade", 96: "Tempestade com granizo", 99: "Tempestade com granizo" };
+
+async function buscar() {
+  try {
+    const r = await fetch("/dados", { cache: "no-store" });
+    desenhar(await r.json());
+  } catch (e) { /* servidor reiniciando: tenta de novo no próximo ciclo */ }
+}
+setInterval(buscar, 500);
+buscar();
+
+function relogio() {
+  const agora = new Date();
+  texto($("hora"), agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+  const data = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+  texto($("data"), data.charAt(0).toUpperCase() + data.slice(1));
+}
+setInterval(relogio, 1000);
+relogio();
+
+// ------------------------------------------------------------------ a esfera
+// Anéis girando e uma nuvem de pontos numa esfera. Cada estado muda velocidade, cor e "respiração":
+// parado respira devagar; ouvindo abre ondas; pensando gira rápido; falando pulsa como uma voz.
+const cv = $("esfera"), ctx = cv.getContext("2d");
+const W = cv.width, C = W / 2;
+const PONTOS = Array.from({ length: 420 }, () => {
+  const u = Math.random() * 2 - 1, t = Math.random() * Math.PI * 2;
+  return [Math.sqrt(1 - u * u) * Math.cos(t), Math.sqrt(1 - u * u) * Math.sin(t), u];
+});
+const ANEIS = [ [0.86, 0.9, 1.2, [8, 10]], [0.78, -1.4, 2.4, [2, 14]], [0.70, 2.2, 1.0, [40, 18]], [0.94, -0.5, 0.8, [1, 6]] ];
+const VEL = { parado: 0.25, ouvindo: 0.6, pensando: 1.8, falando: 0.9 };
+let fase = 0, energia = 0, ondas = [];
+
+function cor(alpha) {
+  const hex = getComputedStyle(document.body).getPropertyValue("--acento").trim() || "#4fb3ff";
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
+function quadro(t) {
+  const reduzir = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const v = reduzir ? 0.05 : VEL[estado];
+  fase += 0.012 * v;
+  const alvo = estado === "falando" ? 0.55 + 0.45 * Math.abs(Math.sin(t / 110) * Math.sin(t / 47))
+             : estado === "ouvindo" ? 0.5 : estado === "pensando" ? 0.35 : 0.12 + 0.06 * Math.sin(t / 900);
+  energia += (alvo - energia) * 0.15;
+  if (estado === "ouvindo" && !reduzir && Math.random() < 0.03) ondas.push(0);
+
+  ctx.clearRect(0, 0, W, W);
+  // halo
+  const halo = ctx.createRadialGradient(C, C, W * 0.05, C, C, W * 0.5);
+  halo.addColorStop(0, cor(0.18 + energia * 0.25));
+  halo.addColorStop(1, cor(0));
+  ctx.fillStyle = halo;
+  ctx.fillRect(0, 0, W, W);
+
+  // ondas de "ouvindo"
+  ondas = ondas.filter((r) => r < 1);
+  ondas.forEach((r, i) => {
+    ctx.beginPath(); ctx.arc(C, C, W * (0.3 + r * 0.2), 0, Math.PI * 2);
+    ctx.strokeStyle = cor(0.5 * (1 - r)); ctx.lineWidth = 2; ctx.stroke();
+    ondas[i] = r + 0.012;
+  });
+
+  // anéis
+  ANEIS.forEach(([raio, sentido, largura, traco]) => {
+    ctx.save(); ctx.translate(C, C); ctx.rotate(fase * sentido);
+    ctx.setLineDash(traco); ctx.beginPath(); ctx.arc(0, 0, W * 0.5 * raio * 0.92, 0, Math.PI * 2);
+    ctx.strokeStyle = cor(0.35 + energia * 0.4); ctx.lineWidth = largura * 2; ctx.stroke(); ctx.restore();
+  });
+
+  // esfera de pontos
+  const R = W * 0.24 * (1 + energia * 0.12);
+  const ca = Math.cos(fase * 1.3), sa = Math.sin(fase * 1.3), cb = Math.cos(0.4), sb = Math.sin(0.4);
+  for (const [x, y, z] of PONTOS) {
+    const x1 = x * ca - z * sa, z1 = x * sa + z * ca;
+    const y2 = y * cb - z1 * sb, z2 = y * sb + z1 * cb;
+    const p = (z2 + 1.6) / 2.6;
+    ctx.beginPath(); ctx.arc(C + x1 * R, C + y2 * R, 1.6 + p * 2.2, 0, Math.PI * 2);
+    ctx.fillStyle = cor(0.15 + p * 0.75); ctx.fill();
+  }
+  // núcleo
+  const nucleo = ctx.createRadialGradient(C, C, 0, C, C, R * 0.55);
+  nucleo.addColorStop(0, cor(0.55 + energia * 0.4)); nucleo.addColorStop(1, cor(0));
+  ctx.fillStyle = nucleo; ctx.beginPath(); ctx.arc(C, C, R * 0.55, 0, Math.PI * 2); ctx.fill();
+  requestAnimationFrame(quadro);
+}
+requestAnimationFrame(quadro);
+</script>
+</body>
+</html>

@@ -15,6 +15,7 @@ Assistente de voz para o meu Linux (GNOME com Wayland). Roda quase tudo localmen
 - **Lembretes e rotinas**: "me lembra daqui a 20 minutos de…", "toda sexta às 17h me lembra de…".
 - **Memória**: "lembra que…" guarda o fato numa nota do vault. Ele também lembra os últimos 5 minutos de conversa.
 - **Claude**: perguntas livres, busca na web, resumo da página aberta, "o que tem na minha tela?" e "traduz isso" (o texto selecionado).
+- **A tela**: "abre a tela" abre uma janela em tela cheia com a esfera no centro (a cor diz se ele está parado, ouvindo, pensando ou falando), relógio, cartões de clima, agenda, lembretes, trabalho, música e notícias, e a legenda da frase que ele está falando. O cartão do assunto acende enquanto ele fala dele. Servida pelo `jarvis-tela` em `http://127.0.0.1:8765`, só para esta máquina.
 - **Ponto na barra do GNOME**: mostra se ele está parado, ouvindo, pensando ou falando.
 
 ## Peças
@@ -23,6 +24,7 @@ Assistente de voz para o meu Linux (GNOME com Wayland). Roda quase tudo localmen
 |---|---|---|
 | `bin/` | todos os scripts | `~/.claude/bin` (link) |
 | `gnome/` | extensão do ponto na barra | `~/.local/share/gnome-shell/extensions/` (link) |
+| `tela/` | a página da tela (esfera, cartões, legenda) | servida pelo `bin/tela.py` |
 | `chrome/` | extensão "Jarvis Música" (YouTube Music e leitura de página) | `~/.local/share/jarvis/extensao` (link) |
 | `systemd/` | escuta do "Ei Jarvis", microfone sem eco e timers do trabalho | `~/.config/systemd/user/` (link) |
 | `config/` | artistas (vocabulário do Whisper), pronúncia e o microfone sem eco (`pipewire/`) | `~/.config/jarvis/` (link) |

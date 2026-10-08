@@ -1,0 +1,12 @@
+[Unit]
+Description=Jarvis — a tela (servidor local da página com a esfera e os cartões)
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.claude/bin/tela.py
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

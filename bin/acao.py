@@ -66,6 +66,10 @@ _spec_c.loader.exec_module(config)  # ~/.config/jarvis/local.env: o que é da em
 if config.get("GITLAB_MRS_URL"):
     APELIDOS[config.get("GITLAB_MRS_URL")] = ["gitlab", "git lab", "merge requests", "mrs"]
     NOME_FALADO[config.get("GITLAB_MRS_URL")] = "o GitLab"
+TELA = "jarvis-tela"
+APELIDOS[TELA] = ["tela", "a tela", "sua tela", "tela do jarvis", "a tela do jarvis", "painel", "seu painel",
+                  "hud", "o hud", "interface", "sua interface"]
+NOME_FALADO[TELA] = "a tela"
 MARCA_SO_MIDIA = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "jarvis", "so-midia")
 PASTAS_DESKTOP = ["~/.local/share/applications", "/usr/share/applications",
                   "/var/lib/flatpak/exports/share/applications", "/var/lib/snapd/desktop/applications"]
@@ -104,7 +108,7 @@ def resolver(alvo):
     apps = apps_instalados()
     falado = {}
     for destino, nomes in APELIDOS.items():
-        if destino.startswith("http") or destino in apps:
+        if destino.startswith("http") or destino in apps or destino == TELA:
             for n in nomes:
                 falado[n] = destino
     for destino, nome in apps.items():
@@ -134,6 +138,9 @@ def abrir(alvo):
         r = musica.pedir({"acao": "estado"})  # pela extensão: já tem aba do YouTube Music?
         if r and r.get("aberta"):
             return "O YouTube Music já está aberto."
+    if destino == TELA:  # a tela do Jarvis: janela própria do Chrome, em tela cheia (tela.py)
+        soltar(["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "tela.py"), "abrir"])
+        return "Abrindo a tela."
     soltar(["xdg-open", destino] if destino.startswith("http") else ["gtk-launch", destino])
     return f"Abrindo {nome}."
 

@@ -239,3 +239,10 @@ Jarvis, notícias do Cruzeiro	fonte noticias cruzeiro
 Jarvis, tem notícias sobre inteligência artificial?	fonte noticias inteligencia artificial
 Jarvis, quais as notícias de hoje?	comando noticias
 Jarvis, o MR está aprovado?	claude
+
+# --- A tela (08/10)
+Jarvis, abre a tela	acao abrir a tela
+Jarvis, mostra a tela	acao abrir a tela
+Jarvis, abre o seu painel	acao abrir o seu painel
+Jarvis, o que tem na minha tela?	claude
+Jarvis, mostra as tarefas	claude

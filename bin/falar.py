@@ -22,6 +22,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 
 # o WirePlumber memoriza o volume de cada tipo de stream e aplica no próximo. Um som do Jarvis
 # que terminou abaixado (ducking) deixava todos os seguintes mudos — aconteceu duas vezes.
@@ -173,9 +174,86 @@ def nao_perturbe():
     return r.stdout.strip() == "false"
 
 
+def frases(texto, minimo=25):
+    """O texto em frases para falar uma a uma; frase curta ("Pronto.") se junta à seguinte."""
+    partes = [p for p in re.split(r"(?<=[.!?…])\s+", texto.strip()) if p]
+    saida = []
+    for p in partes:
+        if saida and len(saida[-1]) < minimo:
+            saida[-1] = f"{saida[-1]} {p}"
+        else:
+            saida.append(p)
+    return saida or [texto]
+
+
+def _sintetizar(trecho, pasta, n, primeira):
+    """O WAV pronto para tocar (com o timbre), ou None se o Piper falhou."""
+    cru, final = os.path.join(pasta, f"{n}-cru.wav"), os.path.join(pasta, f"{n}.wav")
+    com_timbre = os.path.exists(TIMBRE_PY) and os.access(VENV_PY, os.X_OK)
+    escala = VELOCIDADE * TOM if com_timbre else VELOCIDADE
+    piper = [PIPER, "--model", VOZ, "--sentence_silence", PAUSA, "--noise_w", RITMO, "--noise_scale", TIMBRE,
+             "--output_file", cru]
+    subprocess.run([*piper, "--length_scale", f"{escala:.3f}"], input=pronunciar(trecho), text=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    if not os.path.exists(cru):
+        return None
+    if not com_timbre:
+        return cru
+    r = subprocess.run([VENV_PY, TIMBRE_PY, cru, final, *([] if primeira else ["--sem-folga"])],
+                       stderr=subprocess.DEVNULL, check=False)
+    if r.returncode == 0:
+        return final
+    # sem o timbre, a duração sairia curta: refaz cru, no ritmo certo
+    subprocess.run([*piper, "--length_scale", f"{VELOCIDADE:.3f}"], input=pronunciar(trecho), text=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    return cru
+
+
 def tocar(texto):
+    """Fala frase a frase: a próxima é sintetizada enquanto a atual toca (sem buraco entre elas),
+    e cada frase vai para o estado.json — a tela mostra a legenda e acende o cartão do assunto."""
     if nao_perturbe():
         return 0
+    if not (os.path.exists(PIPER) and os.path.exists(VOZ)):
+        print("falar: Piper ou a voz não estão em ~/.local/share/piper", file=sys.stderr)
+        return 1
+    partes = frases(texto)
+    with open(TRAVA, "w") as trava:
+        fcntl.flock(trava, fcntl.LOCK_EX)  # fila: a segunda fala espera a primeira acabar
+        with tempfile.TemporaryDirectory(dir=os.path.dirname(TRAVA)) as pasta:
+            prontos = {}
+
+            def preparar(n):
+                prontos[n] = _sintetizar(partes[n], pasta, n, primeira=(n == 0))
+
+            preparar(0)
+            os.makedirs(os.path.dirname(FALANDO), exist_ok=True)
+            try:
+                for n, frase in enumerate(partes):
+                    seguinte = None
+                    if n + 1 < len(partes):
+                        seguinte = threading.Thread(target=preparar, args=(n + 1,))
+                        seguinte.start()
+                    caminho = prontos.get(n)
+                    if caminho:
+                        estado.marcar("falando", frase)
+                        # o pid fica num arquivo enquanto fala: a escuta corta a fala se você interromper
+                        tocador = subprocess.Popen(["pw-play", *SEM_VOLUME_SALVO, caminho], stderr=subprocess.DEVNULL)
+                        with open(FALANDO, "w") as f:
+                            f.write(str(tocador.pid))
+                        if tocador.wait() < 0:  # morto por sinal = interrompido: o resto não toca
+                            if seguinte:
+                                seguinte.join()
+                            break
+                    if seguinte:
+                        seguinte.join()
+            finally:
+                estado.marcar("parado")
+                try:
+                    os.remove(FALANDO)
+                except OSError:
+                    pass
+    return 0
     if not (os.path.exists(PIPER) and os.path.exists(VOZ)):
         print("falar: Piper ou a voz não estão em ~/.local/share/piper", file=sys.stderr)
         return 1

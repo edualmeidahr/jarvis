@@ -83,6 +83,9 @@ class Indicador extends PanelMenu.Button {
             rodar([`${BIN}/escuta-alterna.sh`], () => this._conferirEscuta());
         });
         this.menu.addMenuItem(this._chave);
+        const tela = new PopupMenu.PopupMenuItem('Abrir a tela do Jarvis');
+        tela.connect('activate', () => rodar(['python3', `${BIN}/tela.py`, 'abrir']));
+        this.menu.addMenuItem(tela);
         const atualizar = new PopupMenu.PopupMenuItem('Atualizar o GitLab agora');
         atualizar.connect('activate', () => rodar([`${BIN}/atualiza.sh`]));
         this.menu.addMenuItem(atualizar);
