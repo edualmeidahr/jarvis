@@ -647,26 +647,15 @@ class abaixar_musica:
             if nome in originais:
                 subprocess.run(["wpctl", "set-volume", sid, originais[nome]], check=False)
 
-    MEMORIA = os.path.expanduser("~/.cache/jarvis/volumes-normais.json")
-
     @classmethod
     def _original(cls, nome, atual):
-        """O volume "normal" do app. O WirePlumber às vezes guarda um volume abaixado (o stream fechou
-        no meio de uma fala) e o próximo nasce baixo; abaixar a partir dele deixava a música muda.
-        Por isso o último normal visto (≥ 0,5) fica guardado e vale quando o atual vier baixo."""
-        try:
-            memoria = json.load(open(cls.MEMORIA))
-        except (OSError, ValueError):
-            memoria = {}
-        if nome == "Jarvis trilha":  # a trilha do bom dia: o normal dela é sempre 100%
-            return "1.00"
-        if float(atual) >= 0.5:
-            if memoria.get(nome) != atual:
-                memoria[nome] = atual
-                os.makedirs(os.path.dirname(cls.MEMORIA), exist_ok=True)
-                json.dump(memoria, open(cls.MEMORIA, "w"))
-            return atual
-        return memoria.get(nome, "1.00")
+        """O volume "normal" do app, para onde ele volta depois que o Jarvis fala: sempre 100%.
+        Já tentei aprender o normal pelo que estava tocando, e deu errado duas vezes: o WirePlumber
+        guarda volume abaixado (o stream fechou no meio de uma fala) e o próprio Jarvis aprendeu
+        os 50% da trilha do bom dia como "normal" — o Chrome inteiro ficou em 50% dali em diante.
+        Não dá para saber se um volume baixo foi você ou foi sobra; volume por app quase ninguém
+        mexe, então 100% é o normal certo."""
+        return atual if float(atual) > 1.0 else "1.00"
 
     @classmethod
     def recuperar(cls):
