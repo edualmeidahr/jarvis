@@ -283,3 +283,9 @@ Jarvis, liga aí.	chamada ligar
 Jarvis, vamos conversar.	chamada ligar
 Jarvis, liga o Spotify.	acao abrir o spotify
 Jarvis, Ei Jarvis, qual a próxima reunião?	comando proxima
+
+# --- Fechamento do dia por voz (08/10)
+Jarvis, encerrar o dia.	fechamento encerrar o dia
+Jarvis, fecha o dia.	fechamento fecha o dia
+Jarvis, acabei por hoje.	fechamento acabei por hoje
+Jarvis, encerra.	claude

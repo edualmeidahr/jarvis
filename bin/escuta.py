@@ -56,6 +56,7 @@ FALA_MINIMA_CONTINUACAO_S = 0.5  # na continuação, menos voz que isso é ruíd
 MAX_CONTINUACOES = 2             # respostas emendadas sem "Ei Jarvis": depois disso, só chamando de novo
 SEM_SOM_S = 5.0              # o microfone manda 16 mil amostras por segundo: 5 s sem nada = travou
 VOZ_LIMITE_S = 150           # um pedido (transcrever + Claude + falar) não passa disso
+VOZ_LIMITE_FECHAMENTO_S = 300  # no fechamento do dia, o turno que grava as notas demora mais
 MIC_SEM_ECO = "jarvis_mic_sem_eco"  # serviço jarvis-aec: o microfone com a saída de som subtraída
 # reconhecedor de fala dentro da escuta, já carregado: Parakeet v3 (sherpa-onnx). Medido em 08/10:
 # 0,4 a 1 s por pedido, contra 3 a 4 s do Whisper small (que também errava mais: "Conta 7 vezes 8").
@@ -73,6 +74,7 @@ INTERROMPIDO = os.path.join(JV, "interrompido")  # o processo do jarvis.py que f
 CONTINUAR = os.path.join(JV, "continuar")        # o jarvis.py respondeu falando: vale ouvir a continuação
 CHAMADA = os.path.join(JV, "chamada")            # modo chamada ("Ei Jarvis, liga"): ouve sem o nome até "tchau"
 CHAMADA_SILENCIO_S = 10.0    # na chamada, esse tempo sem você falar desliga
+FECHAMENTO_SILENCIO_S = 20.0  # no fechamento do dia as perguntas pedem lembrar: mais tempo para pensar
 NIVEL_CHAMADA = 0.3          # música durante a chamada (escala do wpctl: ~-31 dB), baixa sem sumir
 
 _spec_e = importlib.util.spec_from_file_location("estado", os.path.join(BIN, "estado.py"))
@@ -358,7 +360,7 @@ class Escuta:
                 proc = subprocess.Popen([os.path.join(BIN, "voz.sh"), "--acordado", wav, *pronto],
                                         start_new_session=True, env=env)
                 try:
-                    proc.wait(timeout=VOZ_LIMITE_S)
+                    proc.wait(timeout=VOZ_LIMITE_FECHAMENTO_S if self.tipo_chamada() == "fechamento" else VOZ_LIMITE_S)
                 except subprocess.TimeoutExpired:
                     # pedido travado (clipboard com a tela bloqueada, Claude sem rede…): sem isto a
                     # escuta ficava "ocupada" para sempre e parava de ouvir
@@ -403,7 +405,8 @@ class Escuta:
             bolha("--som", "ouvindo", "Pode falar…", "Estou te ouvindo.")
         estado.marcar("ouvindo", "chamada" if chamada else "continuação" if continuacao else "")
         if chamada:  # a música já está baixa pela chamada inteira
-            amostras = self.ouvir_pedido(mic, CHAMADA_SILENCIO_S, continuacao=True)
+            silencio = FECHAMENTO_SILENCIO_S if self.tipo_chamada() == "fechamento" else CHAMADA_SILENCIO_S
+            amostras = self.ouvir_pedido(mic, silencio, continuacao=True)
         else:
             with acao.abaixar_musica(0.15):  # com a música alta, o VAD nunca ouve o silêncio do fim
                 amostras = self.ouvir_pedido(mic, CONTINUACAO_S if continuacao else ESPERA_FALA_S, continuacao)
@@ -425,6 +428,14 @@ class Escuta:
         self.entregar(amostras, tentativa, continuacao or chamada, self.texto_pedido)
         return True
 
+    @staticmethod
+    def tipo_chamada():
+        """"fechamento" (o fechamento do dia por voz), "" (chamada comum) ou None (sem chamada)."""
+        try:
+            return open(CHAMADA).read().strip()
+        except OSError:
+            return None
+
     def turno_da_chamada(self, mic):
         """Um turno do modo chamada, se ela está ligada. False: não há chamada (segue o normal)."""
         if not os.path.exists(CHAMADA):
@@ -445,7 +456,7 @@ class Escuta:
             self.duck_chamada = acao.abaixar_musica(NIVEL_CHAMADA).__enter__()
         self.continuar, self.de_novo, self.continuacoes = False, 0, 0
         if not self.acordar(mic, chamada=True):
-            self.sair_da_chamada(f"{CHAMADA_SILENCIO_S:.0f} s sem você falar")
+            self.sair_da_chamada("silêncio")
         self._zerar()
         return True
 

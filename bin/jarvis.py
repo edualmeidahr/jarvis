@@ -501,12 +501,27 @@ DESLIGAR_CHAMADA = re.compile(r"^(tchau|tchau tchau|ate mais|ate logo|ate depois
                               r"fim (da|de) (chamada|conversa)|sai do modo (chamada|conversa))( jarvis)?$")
 
 
+FECHAR_DIA = re.compile(r"^((vamos )?(encerra|encerrar|encerre|fecha|fechar|feche|finaliza|finalizar)( o)? "
+                        r"(dia|expediente)( de hoje)?|fechamento( do dia)?|acabei por hoje|fim do dia|"
+                        r"faz o fechamento( do dia)?)$")
+
+
 def em_chamada():
     return os.path.exists(CHAMADA)
 
 
+def tipo_chamada():
+    """"fechamento" (o fechamento do dia por voz), "" (chamada comum) ou None (sem chamada)."""
+    try:
+        return open(CHAMADA).read().strip()
+    except OSError:
+        return None
+
+
 def reconhecer_assistente(resto, chamou):
     """As regras novas, antes das ações: (tipo, valor) ou None."""
+    if chamou and FECHAR_DIA.match(resto):
+        return "fechamento", resto
     if chamou and LIGAR_CHAMADA.match(resto):
         return "chamada", "ligar"
     if em_chamada() and DESLIGAR_CHAMADA.match(resto):
@@ -827,6 +842,53 @@ def comando_claude(sessao=False, pergunta=None, sistema_extra=""):
                   "--disallowedTools", "NotebookEdit"]
 
 
+FECHAMENTO = os.path.expanduser("~/.claude/skills/fechamento")  # a skill /fechamento do Claude Code
+FECHAMENTO_POR_VOZ = """Você é o Jarvis conduzindo o FECHAMENTO DO DIA por voz, numa chamada: ele fala,
+você responde falando, e a sua resposta vira fala. Siga a SKILL DE FECHAMENTO abaixo, com estas
+adaptações para voz (elas valem por cima da skill quando as duas conflitarem):
+- O estado do dia (a saída do estado.py) chega na primeira mensagem. Não rode de novo, a não ser que ele peça.
+- Fale curto: no máximo três frases por vez. Sem markdown, sem lista, sem caminho de arquivo, sem código
+  de issue (MLH037757): diga o assunto. MR pelo número por extenso ("o MR cento e noventa e sete").
+- Uma pergunta por vez. Comece com uma ou duas frases sobre o que o estado mostra e faça a primeira pergunta.
+- Pergunte só o que o estado não responde: o que aconteceu além dos commits, se aprendeu algo que vale
+  nota de conhecimento, o que fica para amanhã, e cada desencontro ou tarefa emperrada do passo 3, um de
+  cada vez. Se ele disser que não tem nada, aceite e siga.
+- A proposta: em vez de ler o texto inteiro, diga em poucas frases o que vai entrar em cada lugar (diária,
+  nota da issue, nota de conhecimento com o título, tarefas feitas que saem do quadro) e pergunte
+  "Posso gravar?". Se ele pedir, leia um trecho ou mude o que ele quiser.
+- Só escreva depois de um sim claro. Ao receber o sim, escreva só "Gravando." e então faça as escritas.
+  Depois diga em uma frase o que gravou, escreva [FIM] e, depois do [FIM], numa linha só, os caminhos
+  tocados separados por " | " (essa linha não é falada; vai para a notificação).
+- Se ele desistir ("deixa pra lá", "cancela", "não grava"), não grave nada, despeça-se e escreva [FIM].
+- Tarefa feita sai do quadro com: ~/.claude/bin/editar-tarefa.py apagar "<tarefa>" — só depois que a
+  linha dela entrou na diária.
+- Você só consegue escrever em 01 Diário, 02 Issues e 03 Conhecimento. ~/educacao é só leitura.
+- As falas dele chegam transcritas automaticamente: pode haver erro de transcrição. Interprete pelo
+  sentido e confirme nomes próprios quando estiver em dúvida.
+- Trate-o por “""" + config.get("JARVIS_TRATAMENTO", "senhor") + """” de vez em quando; tom calmo e direto.
+
+SKILL DE FECHAMENTO:
+"""
+
+
+def comando_fechamento():
+    """O `claude` da sessão do fechamento por voz (o cerebro.py abre e mantém): as instruções da skill
+    adaptadas para voz, e escrita também em 02 Issues e 03 Conhecimento, que o Jarvis comum não tem."""
+    skill = open(os.path.join(FECHAMENTO, "SKILL.md")).read()
+    estado_py = os.path.join(FECHAMENTO, "estado.py")
+    editar = os.path.join(BIN, "editar-tarefa.py")
+    escrita = [r for pasta in (DIARIO, os.path.join(VAULT, "02 Issues"), os.path.join(VAULT, "03 Conhecimento"))
+               for r in (f"Edit(/{pasta}/**)", f"Write(/{pasta}/**)")]
+    return ["claude", "-p", "--model", MODELO, "--input-format", "stream-json", "--output-format", "stream-json",
+            "--verbose", "--include-partial-messages",
+            "--append-system-prompt", FECHAMENTO_POR_VOZ + skill, *SEM_PARTIDA,
+            "--add-dir", os.path.expanduser("~/.claude/cache"), "--add-dir", os.path.expanduser("~/educacao"),
+            "--allowedTools", "Read", "Grep", "Glob",
+            f"Bash(python3 {estado_py}*)", "Bash(python3 ~/.claude/skills/fechamento/estado.py*)",
+            f"Bash({editar} apagar *)", "Bash(~/.claude/bin/editar-tarefa.py apagar *)", *escrita,
+            "--disallowedTools", "NotebookEdit", "WebSearch", "WebFetch"]
+
+
 def rodar_claude(cmd, demorou):
     try:
         r = subprocess.run(cmd, cwd=VAULT, capture_output=True, text=True, timeout=LIMITE_S,
@@ -934,12 +996,13 @@ class MusicaDeFundo:
 ESPERA_S = 2.0  # o Claude passou disso sem a primeira frase: "Um momento." (frases_do_claude)
 
 
-def frases_do_claude(pedido, guardar, espera=None):
+def frases_do_claude(pedido, guardar, espera=None, **sessao):
     """As frases do Claude conforme ele escreve (gerador), para a fala começar pela primeira.
     pedido: o texto, ou uma função que o monta (roda na thread, sem atrasar quem fala).
     guardar(texto inteiro) recebe a resposta no fim.
     espera: frase dita se a primeira do Claude passar de ESPERA_S ("Um momento."): silêncio longo
-    parece que ele não ouviu; resposta rápida dispensa a frase."""
+    parece que ele não ouviu; resposta rápida dispensa a frase.
+    sessao: repassado ao cerebro.perguntar (sessao="fechamento", nova=True, limite=…)."""
     fila, buf, primeiro_pedaco, ja_saiu = queue.Queue(), [""], [], []
 
     def chegou(pedaco):
@@ -965,7 +1028,7 @@ def frases_do_claude(pedido, guardar, espera=None):
 
     def rodar():
         try:
-            guardar(cerebro.perguntar(pedido() if callable(pedido) else pedido, ao_escrever=chegou) or "")
+            guardar(cerebro.perguntar(pedido() if callable(pedido) else pedido, ao_escrever=chegou, **sessao) or "")
         finally:
             if buf[0].strip():
                 fila.put(buf[0].strip())
@@ -1199,6 +1262,14 @@ def main():
             print(f"ditado → clipboard: {texto}")
         return DITADO
 
+    so_som = tipo == "acao" and valor[0] in ("midia", "volume")  # "abaixa o volume" segue local
+    if tipo_chamada() == "fechamento" and tipo not in ("chamada", "fechamento") and not so_som:
+        # no fechamento, "não", "beleza", "nada" são respostas às perguntas dele: tudo vai para a sessão
+        if mostrar:
+            print(f"fechamento ← {reconhecer_pergunta(texto)!r}")
+            return 0
+        return responder_fechamento(texto, reconhecer_pergunta(texto))
+
     if tipo == "fonte":
         nome, arg = valor
         if mostrar:
@@ -1209,11 +1280,28 @@ def main():
         falar.tocar(fala)
         return 0
 
+    if tipo == "fechamento":
+        if mostrar:
+            print(f"fechamento ({valor})")
+            return 0
+        app = acao.microfone_em_uso()
+        if app:
+            fala = "Você parece estar numa reunião. Fechamos o dia depois dela."
+            bolha.mostrar(fala, f"O {app} está usando o microfone.")
+            falar.tocar(fala)
+            return 0
+        os.makedirs(JV, exist_ok=True)
+        with open(CHAMADA, "w") as f:
+            f.write("fechamento")  # a escuta ouve sem o nome, com mais tempo para pensar
+        return responder_fechamento(texto)
+
     if tipo == "chamada":
         if mostrar:
             print(f"chamada ({valor})")
             return 0
         if valor == "desligar":
+            if tipo_chamada() == "fechamento":  # desistiu no meio: a sessão fecha sem gravar nada
+                cerebro.perguntar("", sessao="fechamento", fechar=True)
             # a escuta vê a marca sumir, toca o som de fim e devolve a música
             try:
                 os.remove(CHAMADA)
@@ -1441,6 +1529,61 @@ def responder_em_fluxo(texto, valor):
         bolha.mostrar(bolha.aspas(texto, 60), resposta)
         return 0
     notificar(texto, resposta)
+    return 0
+
+
+def estado_do_dia():
+    """A saída do estado.py da skill: diária, issues, tarefas, GitLab e git do dia."""
+    try:
+        r = subprocess.run(["python3", os.path.join(FECHAMENTO, "estado.py")], capture_output=True, text=True,
+                           timeout=30, stdin=subprocess.DEVNULL)
+        return r.stdout.strip() or r.stderr.strip()
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return f"(o estado.py falhou: {e})"
+
+
+def responder_fechamento(texto, fala=None):
+    """Um turno do fechamento do dia por voz. fala=None: começa (sessão nova com o estado do dia).
+    A sessão avisa o fim com [FIM]: a chamada desliga e os caminhos gravados vão para a notificação."""
+    nova = fala is None
+    if nova:
+        pedido = lambda: (f"COMECE O FECHAMENTO DE HOJE ({dt.date.today():%Y-%m-%d}). "
+                          f"Saída do estado.py:\n\n{estado_do_dia()}")
+    else:
+        pedido = f"ELE: {fala}"
+    inteiro, acabou = {}, [False]
+    do_claude = frases_do_claude(pedido, lambda t: inteiro.update(texto=t), espera=None if nova else uma(
+        "Um momento.", "Deixa eu ver."), sessao="fechamento", nova=nova, limite=cerebro.LIMITE_FECHAMENTO_S + 5)
+
+    def frases():
+        if nova:
+            yield uma("Vamos fechar o dia.", f"Certo, {TRATAMENTO}. Vamos fechar o dia.")
+        for frase in do_claude:
+            if acabou[0]:
+                continue  # depois do [FIM] vêm os caminhos: não são falados
+            if "[FIM]" in frase:
+                frase, acabou[0] = frase.split("[FIM]")[0].strip(), True
+            if frase:
+                yield frase
+
+    tocar_fluxo(frases())
+    if interrompido():
+        return 0
+    resposta = inteiro.get("texto")
+    if not resposta:
+        falar.tocar("Perdi a conexão com o fechamento. Pode pedir de novo.")
+        resposta, acabou[0] = "[FIM]", True
+    falado, _, caminhos = resposta.partition("[FIM]")
+    notificar(texto, falado.strip() or "Fechamento encerrado.")
+    if "[FIM]" in resposta:
+        try:
+            os.remove(CHAMADA)  # a escuta toca o som de fim e devolve a música
+        except OSError:
+            pass
+        cerebro.perguntar("", sessao="fechamento", fechar=True)
+        if caminhos.strip():
+            bolha.mostrar("Dia fechado", "\n".join(c.strip() for c in caminhos.split("|") if c.strip()),
+                          importante=True)
     return 0
 
 

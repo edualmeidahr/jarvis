@@ -29,6 +29,7 @@ SOCKET = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "jarvis", "cere
 OCIOSA_S = 600
 MAX_TURNOS = 20
 LIMITE_S = 90
+LIMITE_FECHAMENTO_S = 240  # gravar diária, nota da issue e conhecimento são várias edições seguidas
 
 
 def log(msg):
@@ -36,8 +37,8 @@ def log(msg):
 
 
 class Sessao:
-    def __init__(self, cmd, cwd):
-        self.cmd, self.cwd = cmd, cwd
+    def __init__(self, cmd, cwd, max_turnos=MAX_TURNOS, limite_s=LIMITE_S):
+        self.cmd, self.cwd, self.max_turnos, self.limite_s = cmd, cwd, max_turnos, limite_s
         self.proc, self.turnos, self.ultimo = None, 0, 0.0
 
     def _abrir(self):
@@ -60,7 +61,7 @@ class Sessao:
     def perguntar(self, texto, ao_escrever=None):
         """A resposta inteira. ao_escrever(pedaço) recebe o texto conforme o Claude escreve:
         quem fala pode começar pela primeira frase (o bom dia longo ganha uns 3 s)."""
-        velha = time.time() - self.ultimo > OCIOSA_S or self.turnos >= MAX_TURNOS
+        velha = time.time() - self.ultimo > OCIOSA_S or self.turnos >= self.max_turnos
         if self.proc is None or self.proc.poll() is not None or velha:
             self._abrir()
         self.ultimo = time.time()
@@ -97,7 +98,7 @@ class Sessao:
 
         leitor = threading.Thread(target=ler, daemon=True)
         leitor.start()
-        leitor.join(LIMITE_S)
+        leitor.join(self.limite_s)
         if leitor.is_alive() or "texto" not in resultado:
             log("sem resposta a tempo: sessão descartada")
             self.proc.kill()
@@ -106,18 +107,20 @@ class Sessao:
         return resultado["texto"].strip()
 
 
-def comando_do_claude():
-    """O mesmo `claude` que o jarvis.py montaria, só que em modo sessão."""
+def carregar_jarvis():
+    """O jarvis.py: as instruções e as permissões moram lá."""
     spec = importlib.util.spec_from_file_location("jarvis", os.path.join(BIN, "jarvis.py"))
     jarvis = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(jarvis)
-    cmd = jarvis.comando_claude(sessao=True)
-    return cmd, jarvis.VAULT
+    return jarvis
 
 
 def servir():
-    cmd, cwd = comando_do_claude()
-    sessao = Sessao(cmd, cwd)
+    jarvis = carregar_jarvis()
+    sessao = Sessao(jarvis.comando_claude(sessao=True), jarvis.VAULT)
+    # o fechamento do dia por voz tem sessão própria: outras instruções (a skill) e outras
+    # permissões (escreve em issues e conhecimento). Nasce a cada "encerrar o dia"
+    outras = {}
     vez = threading.Lock()
     os.makedirs(os.path.dirname(SOCKET), exist_ok=True)
     try:
@@ -141,9 +144,24 @@ def servir():
                 def repassar(pedaco):  # em fluxo: cada pedaço vai na hora, uma linha por pedaço
                     con.sendall(json.dumps({"pedaco": pedaco}, ensure_ascii=False).encode() + b"\n")
 
+                nome = pedido.get("sessao") or ""
+                if nome and nome != "fechamento":
+                    raise ValueError(f"sessão desconhecida: {nome}")
+                if nome and pedido.get("fechar"):
+                    with vez:
+                        if nome in outras:
+                            outras.pop(nome).fechar()
+                    con.sendall(b'{"ok": true, "texto": ""}\n')
+                    return
                 with vez:
+                    if nome and (pedido.get("nova") or nome not in outras):
+                        if nome in outras:
+                            outras.pop(nome).fechar()
+                        outras[nome] = Sessao(jarvis.comando_fechamento(), jarvis.VAULT,
+                                               max_turnos=80, limite_s=LIMITE_FECHAMENTO_S)
+                    alvo = outras[nome] if nome else sessao
                     t = time.time()
-                    texto = sessao.perguntar(pedido["texto"], repassar if pedido.get("fluxo") else None)
+                    texto = alvo.perguntar(pedido["texto"], repassar if pedido.get("fluxo") else None)
                     log(f"pergunta respondida em {time.time() - t:.1f}s")
                 resposta = {"ok": texto is not None, "texto": texto or ""}
             except Exception as e:  # um pedido ruim não derruba o serviço
@@ -158,14 +176,16 @@ def servir():
         threading.Thread(target=atender, args=(con,), daemon=True).start()
 
 
-def perguntar(texto, limite=LIMITE_S + 5, ao_escrever=None):
+def perguntar(texto, limite=LIMITE_S + 5, ao_escrever=None, sessao=None, nova=False, fechar=False):
     """Cliente (jarvis.py): a resposta, ou None se o cérebro não está de pé.
-    ao_escrever(pedaço): recebe o texto conforme o Claude escreve."""
+    ao_escrever(pedaço): recebe o texto conforme o Claude escreve.
+    sessao="fechamento": a sessão do fechamento do dia (nova=True começa outra; fechar=True encerra)."""
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as c:
             c.settimeout(limite)
             c.connect(SOCKET)
-            c.sendall(json.dumps({"texto": texto, "fluxo": bool(ao_escrever)}, ensure_ascii=False).encode() + b"\n")
+            c.sendall(json.dumps({"texto": texto, "fluxo": bool(ao_escrever), "sessao": sessao, "nova": nova,
+                                  "fechar": fechar}, ensure_ascii=False).encode() + b"\n")
             for linha in c.makefile():
                 r = json.loads(linha)
                 if "pedaco" in r:
