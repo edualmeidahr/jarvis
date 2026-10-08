@@ -41,8 +41,12 @@ links() {
     ligar "$f" "$HOME/.config/jarvis/$(basename "$f")"
   done
   ligar "$REPO/config/pipewire" "$HOME/.config/jarvis/pipewire"
+  # serviços são COPIADOS, não linkados: "systemctl disable" num serviço que é link apaga o
+  # próprio arquivo (o botão do painel quebrou assim). Mudou algo em systemd/? Rode de novo.
   for f in "$REPO"/systemd/*; do
-    ligar "$f" "$HOME/.config/systemd/user/$(basename "$f")"
+    local destino="$HOME/.config/systemd/user/$(basename "$f")"
+    [ -L "$destino" ] && rm "$destino"
+    install -m 644 "$f" "$destino"
   done
   [ -e "$HOME/.config/jarvis/local.env" ] || FALTA+=("criar ~/.config/jarvis/local.env a partir de config/local.env.exemplo (só para o GitLab)")
 

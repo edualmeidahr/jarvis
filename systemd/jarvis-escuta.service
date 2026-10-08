@@ -3,6 +3,9 @@ Description=Jarvis — fica ouvindo "Ei Jarvis" (escuta.py)
 After=graphical-session.target pipewire.service
 PartOf=graphical-session.target
 
+# desligado pelo botão ou Ctrl+Alt+J (escuta-alterna.sh): não sobe nem no login
+ConditionPathExists=!%h/.config/jarvis/escuta-desligada
+
 [Service]
 ExecStart=%h/.local/share/jarvis/venv/bin/python %h/.claude/bin/escuta.py
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
