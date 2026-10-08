@@ -9,6 +9,8 @@ Assistente de voz para o meu Linux (GNOME com Wayland). Roda quase tudo localmen
 - **Microfone sem eco**: o serviço `jarvis-aec` cria um microfone virtual que subtrai o que sai pelas caixas (cancelamento de eco do WebRTC, dentro do PipeWire). A escuta e o ditado usam esse microfone; o Meet e o resto continuam no normal. Sem o serviço, tudo funciona com o microfone normal.
 - **Música e mídia**: toca no YouTube Music ou no YouTube, pausa, pula e controla o volume. A música abaixa sozinha enquanto ele fala.
 - **Apps e sites**: abre por nome ("abre o Obsidian").
+- **Bom dia**: "bom dia" (ou o primeiro "Ei Jarvis" sozinho da manhã) traz clima, reuniões, GitLab, tarefas, três notícias e quantas melhorias ele ganhou desde ontem (os commits deste repositório), e termina oferecendo algo. "Vai chover amanhã?" e "quais as notícias?" respondem na hora.
+- **Personalidade**: o tom do J.A.R.V.I.S. do filme, calmo e com humor seco; o tratamento ("senhor") é configurável.
 - **Trabalho**: painel do GitLab às 7h, agenda do Google e lembrete de reunião 15 minutos antes. Também cria e edita tarefas no quadro do Obsidian.
 - **Lembretes e rotinas**: "me lembra daqui a 20 minutos de…", "toda sexta às 17h me lembra de…".
 - **Memória**: "lembra que…" guarda o fato numa nota do vault. Ele também lembra os últimos 5 minutos de conversa.

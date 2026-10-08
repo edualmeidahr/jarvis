@@ -74,7 +74,7 @@ Jarvis, Tocar Marcelo Carvalho, entercendo-me.	acao tocar marcelo carvalho enter
 Jarvis, Pausar música.	acao midia pausar
 Jarvis, Abre-se o neão, review.	claude
 Jarvis, Isso mesmo. Abrir reunião, review.	claude
-Jarvis, Qual o clima para amanhã?	claude
+Jarvis, Qual o clima para amanhã?	comando clima
 Jarvis, Toca é Brunimahoni.	acao tocar brunimahoni
 Jarvis, Socar, Bruno Lee.	acao tocar bruno lee
 Jarvis, Tocar.	acao midia continuar
@@ -187,7 +187,7 @@ Jarvis, e depois dela?	claude
 Jarvis, resume essa página	claude
 Jarvis, o que essa issue pede?	claude
 Jarvis, abre o MR 202	claude
-Jarvis, qual a previsão do tempo amanhã?	claude
+Jarvis, qual a previsão do tempo amanhã?	comando clima
 Jarvis, no Obsidian crie uma tarefa pra amanhã	claude
 Jarvis, renomeia a tarefa assumir issue para Planejar a issue nova	claude
 Jarvis, Ei Jarvis, próxima	acao midia proxima
@@ -211,3 +211,16 @@ Jarvis, Rengervis.	comando oi
 Jarvis, coloca o volume em 4	acao volume 4
 Jarvis, aumente para volume 7	acao volume 7
 Jarvis, toca Queen no YouTube	acao tocar queen no youtube
+
+# --- Bom dia, clima e notícias (08/10): locais, sem passar pelo Claude
+Jarvis, bom dia	comando bom_dia
+Jarvis, vai chover hoje?	comando clima
+Jarvis, vai chover amanhã?	comando clima
+Jarvis, como está o tempo lá fora?	comando clima
+Jarvis, quantos graus está fazendo?	comando clima
+Jarvis, tá frio hoje?	comando clima
+Jarvis, quais são as notícias de hoje?	comando noticias
+Jarvis, me dá as notícias	comando noticias
+Jarvis, o que está acontecendo no mundo?	comando noticias
+Jarvis, qual a previsão do tempo para o fim de semana?	claude
+Jarvis, quais as notícias do Cruzeiro?	claude

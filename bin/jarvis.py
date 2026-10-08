@@ -26,6 +26,7 @@ import difflib
 import importlib.util
 import json
 import os
+import random
 import re
 import subprocess
 import sys
@@ -94,6 +95,13 @@ falar.tocar = _tocar_com_duck
 editar = _modulo("editar-tarefa")
 bolha = _modulo("bolha")
 cerebro = _modulo("cerebro")
+briefing = _modulo("briefing")
+TRATAMENTO = config.get("JARVIS_TRATAMENTO", "senhor")
+
+
+def uma(*opcoes):
+    """Variação: o mesmo "Pronto" toda vez soa a máquina."""
+    return random.choice(opcoes)
 musica = _modulo("musica")
 
 # o whisper escreve o nome de vários jeitos; o que importa é soar como Jarvis.
@@ -105,6 +113,9 @@ MODELO = "sonnet"  # rápido o bastante para voz; o opus demora mais do que uma 
 LIMITE_S = 90
 
 INSTRUCOES = """Você é o Jarvis, assistente por voz de """ + config.get("JARVIS_SOBRE", "quem usa este computador") + """.
+Seu jeito é o do J.A.R.V.I.S. do Homem de Ferro: calmo, educado, preciso, com humor seco e discreto.
+Trate-o por “""" + config.get("JARVIS_TRATAMENTO", "senhor") + """” de vez em quando, não em toda frase. Uma ironia leve
+cabe numa conversa à toa, nunca num assunto de trabalho sério nem num erro. Nada de bajulação nem de enrolação.
 A pergunta chegou por voz e foi transcrita automaticamente: pode ter erro de transcrição; interprete pelo sentido.
 A resposta vai ser FALADA. Responda em português do Brasil, em no máximo duas frases curtas.
 Sem markdown, sem lista, sem emoji, sem link, sem caminho de arquivo.
@@ -175,6 +186,12 @@ def tirar_ativacao(norm):
 
 
 COMANDOS = [
+    (re.compile(r"^(como (esta|ta|vai estar|vai ficar|fica) o (tempo|clima)( hoje| amanha| la fora)?|"
+                r"vai chover( hoje| amanha)?|qual (e )?a (previsao|temperatura)( do tempo)?( de hoje| hoje| para amanha| pra amanha| amanha)?|"
+                r"qual o clima( de hoje| hoje| para amanha| pra amanha| amanha)?|previsao do tempo( de hoje| hoje| para amanha| pra amanha| amanha)?|"
+                r"(ta|esta|vai fazer) (frio|calor)( hoje| amanha| la fora)?|quantos graus( esta fazendo| faz| vai fazer)?( agora| hoje| amanha| la fora)?)$"), "clima"),
+    (re.compile(r"^(quais (sao )?as (noticias|novidades)( de hoje| do dia)?|me (da|de|conta|conte|fala) as noticias( de hoje)?|"
+                r"noticias( de hoje| do dia)?|o que (esta acontecendo|aconteceu) no mundo( hoje)?|tem (alguma )?noticia( nova)?)$"), "noticias"),
     (re.compile(r"^(bom dia|bom dia jarvis|oi bom dia)$"), "bom_dia"),
     (re.compile(r"^(o que (temos|tem|tenho|a gente tem) (pra|para|pro) hoje|como (esta|e|vai ser) (o )?meu dia|"
                 r"meu dia|agenda de hoje|o que tem hoje)$"), "hoje"),
@@ -715,6 +732,48 @@ def perguntar_ao_claude(pergunta, pagina=None):
     return resposta or "Não consegui falar com o Claude agora."
 
 
+# ---------------------------------------------------------------- bom dia
+
+BOM_DIA_FEITO = os.path.expanduser("~/.claude/cache/bom-dia-{dia}")
+PEDIDO_BOM_DIA = """Faça o BOM DIA falado de hoje, no seu jeito de J.A.R.V.I.S., a partir dos DADOS abaixo.
+A saudação ("{saudacao}") JÁ FOI DITA: comece direto por uma frase de efeito curta e original
+(nada de "o universo não parou"), depois, em frases curtas e nesta ordem:
+- o clima (agora, mínima e máxima, chance de chuva; só diga guarda-chuva se passar de 50%);
+- as reuniões de hoje (e as de amanhã só se houver algo fora da rotina);
+- GitLab e tarefas: só o que pede ação dele hoje; se nada pede, diga isso numa frase;
+- as melhorias no seu próprio sistema desde ontem: o número, com um orgulho discreto, sem detalhe técnico;
+- as notícias, uma frase cada, sem citar o veículo;
+- termine com UMA oferta concreta e útil, em forma de pergunta (preparar algo para uma reunião, resumir as
+  threads de um MR, tocar uma playlist para começar...).
+No máximo umas 12 frases. Esta é a única resposta em que você pode passar de duas frases. Sem markdown, sem lista.
+NUNCA leia código de issue (MLH037732, BUG014871): diga só o assunto, curto. MR pelo número por extenso.
+
+DADOS:
+{dados}"""
+
+
+def bom_dia_pendente():
+    """O primeiro "Jarvis" sozinho do dia, de manhã, vira bom dia."""
+    return dt.datetime.now().hour < 12 and not os.path.exists(BOM_DIA_FEITO.format(dia=dt.date.today()))
+
+
+def dar_bom_dia(texto):
+    hora = dt.datetime.now().hour
+    saudacao = f"{'Bom dia' if hora < 12 else 'Boa tarde' if hora < 18 else 'Boa noite'}, {TRATAMENTO}."
+    falando = threading.Thread(target=falar.tocar, args=(saudacao,))
+    falando.start()  # a saudação sai na hora; o resto o Claude monta enquanto isso
+    pedido = PEDIDO_BOM_DIA.format(saudacao=saudacao, dados=briefing.dados())
+    corpo = cerebro.perguntar(pedido) or rodar_claude(comando_claude(pergunta=pedido), "")
+    if not corpo:  # sem Claude: os dados direto, sem estilo
+        corpo = f"{briefing.frase_clima()} {briefing.frase_noticias()}"
+    falando.join()
+    os.makedirs(os.path.dirname(BOM_DIA_FEITO), exist_ok=True)
+    open(BOM_DIA_FEITO.format(dia=dt.date.today()), "w").close()
+    notificar(texto, f"{saudacao} {corpo}")  # a oferta do fim fica esperando resposta (continuação)
+    falar.tocar(corpo)
+    return 0
+
+
 # ---------------------------------------------------------------- conversa
 
 def _conversa():
@@ -866,8 +925,9 @@ def main():
             print(f"encerrar ({valor})")
             return 0
         if valor in ("obrigado", "obrigada", "valeu", "brigado", "brigada"):
-            bolha.mostrar("Às ordens.", "")
-            falar.tocar("Às ordens.")
+            fala = uma("Às ordens.", f"Disponha, {TRATAMENTO}.", "Sempre que precisar.", "Por nada.")
+            bolha.mostrar(fala, "")
+            falar.tocar(fala)
         return 0  # o resto: só fica quieto, e a conversa acaba
 
     if tipo == "memorizar":
@@ -878,7 +938,7 @@ def main():
             print(f"memorizar ← {fato!r}")
             return 0
         memoria.guardar(fato)
-        fala = "Guardado. Vou lembrar."
+        fala = uma("Guardado. Vou lembrar.", "Anotado na memória.", f"Não vou esquecer, {TRATAMENTO}.")
         notificar(texto, f"Guardei: {fato}")
         falar.tocar(fala)
         return 0
@@ -974,9 +1034,15 @@ def main():
 
     agora = dt.datetime.now().astimezone()
     if tipo == "comando":
-        if valor == "bom_dia":
-            fala = falar.frase_bom_dia()
-            escrito = fala
+        if valor == "bom_dia" or (valor == "oi" and bom_dia_pendente()):
+            if mostrar:
+                print("comando bom_dia (briefing pelo Claude)")
+                return 0
+            return dar_bom_dia(texto)
+        elif valor == "clima":
+            fala = escrito = briefing.frase_clima(quando="amanha" if "amanha" in normalizar(texto) else "hoje")
+        elif valor == "noticias":
+            fala = escrito = briefing.frase_noticias()
         elif valor == "hoje":
             fala, escrito = resposta_hoje(agora)
         elif valor == "proxima":
@@ -993,7 +1059,7 @@ def main():
             falar.tocar(fala)  # a notificação quem manda é o atualiza.sh
             return 0
         else:  # "Jarvis" sozinho
-            fala = escrito = "Oi. Pode falar."
+            fala = escrito = uma(f"Pois não, {TRATAMENTO}?", "Às ordens.", f"Diga, {TRATAMENTO}.", "Estou ouvindo.")
         if mostrar:
             print(f"comando {valor}\n  falado: {falar.pronunciar(fala)}\n  escrito:\n    " + escrito.replace("\n", "\n    "))
             return 0
