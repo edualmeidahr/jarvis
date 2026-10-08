@@ -133,4 +133,12 @@ if __name__ == "__main__":
     if sys.argv[1:] == ["abrir"]:
         abrir()
     else:
+        def manter_fresco():
+            """Clima (30 min) e notícias (1 h) sempre no cache: no "bom dia" eles não vão à internet."""
+            while True:
+                subprocess.run(["python3", os.path.join(BIN, "briefing.py")], stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, timeout=60)
+                time.sleep(900)
+
+        threading.Thread(target=manter_fresco, daemon=True).start()
         http.server.ThreadingHTTPServer(("127.0.0.1", PORTA), Pedido).serve_forever()

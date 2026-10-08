@@ -78,6 +78,8 @@ _tocar_sem_duck = falar.tocar
 def _com_duck(falar_agora, *args):
     if interrompido():  # você chamou de novo no meio: esta conversa acabou, a nova fala
         return 0
+    if _falando.get("trilha"):  # no bom dia a trilha já está no nível dela: não abaixa de novo
+        return falar_agora(*args)
     with _trava_fala:
         _falando["n"] += 1
         if _falando["n"] == 1:
@@ -808,6 +810,8 @@ def bom_dia_pendente():
 
 
 MUSICA_BOM_DIA = config.get("JARVIS_MUSICA_BOM_DIA", "highway to hell")  # vazio: sem música
+# volume da trilha enquanto ele fala, na escala do wpctl (percepção): 0,6 ≈ -13 dB, baixa mas audível
+NIVEL_TRILHA = float(config.get("JARVIS_MUSICA_FUNDO", "0.6"))
 
 
 class MusicaDeFundo:
@@ -830,7 +834,7 @@ class MusicaDeFundo:
                 break
             time.sleep(0.5)
         if tocando and not self.fim.is_set():
-            self.duck = acao.abaixar_musica().__enter__()
+            self.duck = acao.abaixar_musica(NIVEL_TRILHA).__enter__()
             # o YouTube Music recria o stream ao começar: confere a cada meio segundo até o fim
             while not self.fim.wait(0.5):
                 self.duck.reaplicar()
@@ -841,6 +845,7 @@ class MusicaDeFundo:
 
 
 def frases_do_claude(pedido, guardar):
+    """pedido: o texto, ou uma função que o monta (roda na thread, sem atrasar quem fala)."""
     """As frases do Claude conforme ele escreve (gerador), para a fala começar pela primeira.
     guardar(texto inteiro) recebe a resposta no fim."""
     fila, buf = queue.Queue(), [""]
@@ -856,7 +861,7 @@ def frases_do_claude(pedido, guardar):
 
     def rodar():
         try:
-            guardar(cerebro.perguntar(pedido, ao_escrever=chegou) or "")
+            guardar(cerebro.perguntar(pedido() if callable(pedido) else pedido, ao_escrever=chegou) or "")
         finally:
             if buf[0].strip():
                 fila.put(buf[0].strip())
@@ -886,10 +891,12 @@ def dar_bom_dia(texto):
     musica_ = MusicaDeFundo()
     hora = dt.datetime.now().hour
     saudacao = f"{'Bom dia' if hora < 12 else 'Boa tarde' if hora < 18 else 'Boa noite'}, {TRATAMENTO}."
-    pedido = PEDIDO_BOM_DIA.format(saudacao=saudacao, dados=briefing.dados())
+    # os dados (clima e notícias podem ir à internet) são juntados na thread do Claude: a saudação
+    # não espera por eles. Antes, com o cache vencido, a busca vinha antes do "Bom dia"
+    montar = lambda: PEDIDO_BOM_DIA.format(saudacao=saudacao, dados=briefing.dados())
     inteiro, faladas = {}, []
 
-    do_claude = frases_do_claude(pedido, lambda t: inteiro.update(texto=t))  # já começa a escrever
+    do_claude = frases_do_claude(montar, lambda t: inteiro.update(texto=t))  # já começa a escrever
 
     def frases():
         yield saudacao  # do cache: toca na hora, enquanto o Claude escreve
@@ -897,14 +904,16 @@ def dar_bom_dia(texto):
             faladas.append(f)
             yield f
 
+    _falando["trilha"] = bool(MUSICA_BOM_DIA)
     try:
         tocar_fluxo(frases())
         if not faladas:  # sem cérebro: o jeito antigo, ou só os dados, sem estilo
-            corpo = rodar_claude(comando_claude(pergunta=pedido), "") or \
+            corpo = rodar_claude(comando_claude(pergunta=montar()), "") or \
                 f"{briefing.frase_clima()} {briefing.frase_noticias()}"
             faladas.append(corpo)
             falar.tocar(corpo)
     finally:
+        _falando["trilha"] = False
         musica_.acabar()
     os.makedirs(os.path.dirname(BOM_DIA_FEITO), exist_ok=True)
     open(BOM_DIA_FEITO.format(dia=dt.date.today()), "w").close()

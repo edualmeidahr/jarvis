@@ -556,7 +556,9 @@ class abaixar_musica:
     ESTADO = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "jarvis", "ducking.json")
     VELHO_S = 120  # ninguém fala ou ouve por 2 minutos seguidos: arquivo mais velho é sobra
 
-    def __init__(self, nivel=0.25):
+    # níveis na escala do wpctl, que é de percepção (cúbica): 0,25 aí é -36 dB, quase mudo.
+    # O padrão (o Jarvis falando por cima) é -21 dB; ouvindo, a escuta pede 0,15 (mudo, de propósito)
+    def __init__(self, nivel=0.45):
         self.nivel, self.entrou = nivel, False
 
     # -- estado compartilhado, sob trava
@@ -587,6 +589,25 @@ class abaixar_musica:
             if nome in originais:
                 subprocess.run(["wpctl", "set-volume", sid, originais[nome]], check=False)
 
+    MEMORIA = os.path.expanduser("~/.cache/jarvis/volumes-normais.json")
+
+    @classmethod
+    def _original(cls, nome, atual):
+        """O volume "normal" do app. O WirePlumber às vezes guarda um volume abaixado (o stream fechou
+        no meio de uma fala) e o próximo nasce baixo; abaixar a partir dele deixava a música muda.
+        Por isso o último normal visto (≥ 0,5) fica guardado e vale quando o atual vier baixo."""
+        try:
+            memoria = json.load(open(cls.MEMORIA))
+        except (OSError, ValueError):
+            memoria = {}
+        if float(atual) >= 0.5:
+            if memoria.get(nome) != atual:
+                memoria[nome] = atual
+                os.makedirs(os.path.dirname(cls.MEMORIA), exist_ok=True)
+                json.dump(memoria, open(cls.MEMORIA, "w"))
+            return atual
+        return memoria.get(nome, "1.00")
+
     @classmethod
     def recuperar(cls):
         """Para a escuta chamar ao subir: devolve volume que ficou abaixado por processo morto."""
@@ -607,7 +628,7 @@ class abaixar_musica:
                     m = re.search(r"([\d.]+)", v)
                     if not m:
                         continue
-                    estado["originais"][nome] = m[1]
+                    estado["originais"][nome] = self._original(nome, m[1])
                 original = float(estado["originais"][nome])
                 subprocess.run(["wpctl", "set-volume", sid, f"{original * self.nivel:.2f}"], check=False)
             estado["ativos"] += 1
@@ -630,7 +651,7 @@ class abaixar_musica:
                     m = re.search(r"([\d.]+)", v)
                     if not m:
                         continue
-                    estado["originais"][nome] = m[1]
+                    estado["originais"][nome] = self._original(nome, m[1])
                 subprocess.run(["wpctl", "set-volume", sid, f"{float(estado['originais'][nome]) * self.nivel:.2f}"],
                                check=False)
             return estado
