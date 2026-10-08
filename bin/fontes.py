@@ -133,20 +133,28 @@ def futebol(time=None):
         tempo = {"First Half": "primeiro tempo", "Second Half": "segundo tempo", "Halftime": "intervalo"}.get(
             j["detalhe"], "segundo tempo" if minuto_n > 45 else "primeiro tempo")
         minuto = f", {j['relogio'].rstrip(chr(39))} minutos" if j["relogio"] and tempo != "intervalo" else ""
-        return f"Ao vivo: {_placar(j)}, {tempo}{minuto}."
+        ao_vivo = f"Ao vivo: {_placar(j)}, {tempo}{minuto}."
+        # o próximo jogo junto: sem ele, "e o próximo, é contra quem?" ia para a busca lenta (20 s)
+        proximo = _agenda(time, so_proximo=True)
+        return f"{ao_vivo} {proximo}".strip()
+    return _agenda(time)
+
+
+def _agenda(time, so_proximo=False):
     achado = _id_do_time(time)
     if not achado:
-        return f"Não achei o {time} na Série A nem na B."
+        return "" if so_proximo else f"Não achei o {time} na Série A nem na B."
     liga, tid, nome = achado
     partes = []
     try:
-        feitos = [_jogo(e) for e in _json(BASE.format(liga=liga) + f"/teams/{tid}/schedule").get("events") or []]
+        feitos = [] if so_proximo else [_jogo(e) for e in _json(BASE.format(liga=liga) + f"/teams/{tid}/schedule").get("events") or []]
         feitos = sorted([x for x in feitos if x["estado"] == "post"], key=lambda x: x["inicio"])
         if feitos:
             dia, _ = _quando(feitos[-1]["inicio"])
             partes.append(f"Último jogo, {dia}: {_placar(feitos[-1])}.")
         futuros = [_jogo(e) for e in _json(BASE.format(liga=liga) + f"/teams/{tid}/schedule?fixture=true").get("events") or []]
-        futuros = sorted([x for x in futuros if x["estado"] == "pre"], key=lambda x: x["inicio"])
+        futuros = sorted([x for x in futuros if x["estado"] == "pre" and x["inicio"] > dt.datetime.now().astimezone()],
+                         key=lambda x: x["inicio"])
         if futuros:
             dia, hora = _quando(futuros[0]["inicio"])
             partes.append(f"Próximo: {futuros[0]['casa']} x {futuros[0]['fora']}, {dia} às {hora}.")
