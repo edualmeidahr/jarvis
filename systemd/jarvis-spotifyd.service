@@ -4,6 +4,9 @@ After=pipewire.service pipewire-pulse.service network-online.target
 
 [Service]
 ExecStart=%h/.local/share/jarvis/spotifyd/spotifyd --no-daemon --config-path %h/.config/jarvis/spotifyd/spotifyd.conf --cache-path %h/.cache/spotifyd
+# o journal do usuário não é legível nesta máquina: o log do player fica num arquivo
+StandardOutput=append:%h/.cache/spotifyd/spotifyd.log
+StandardError=append:%h/.cache/spotifyd/spotifyd.log
 Restart=always
 RestartSec=10
 

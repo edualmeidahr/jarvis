@@ -356,6 +356,11 @@ def tocar_achado(achado):
     if achado["tipo"] != "musica":
         corpo = {"context_uri": achado["uri"]}
     elif fila:
+        # o spotifyd guarda as recomendações da playlist "Jarvis" e não refaz quando o conteúdo dela
+        # muda (depois de "Lost" vinha a fila de "Highway to Hell"). Tocar a música solta por um
+        # instante faz ele esquecer o contexto; voltando para a playlist, ele busca recomendações novas
+        api("PUT", "/me/player/play", corpo={"uris": [achado["uri"]]}, params={"device_id": alvo})
+        time.sleep(0.6)
         corpo = {"context_uri": fila}
     elif achado.get("faixa") and (contexto_e_faixa := contexto_da_musica(achado["faixa"])):
         contexto, a_partir_de = contexto_e_faixa

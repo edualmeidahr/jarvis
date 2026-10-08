@@ -250,7 +250,7 @@ ACOES = [
     (re.compile(r"^(continua|continue|continuar|despausa|volta a tocar|solta o som|play|toca|retoma|retomar)"
                 r"( a musica| o video| tocando)?$"), "midia", "continuar"),
     (re.compile(r"^tocar$"), "midia", "continuar"),
-    (re.compile(r"^(a )?(proxima|proximo|proxima musica|proximo video|proxima faixa|pula|pular|pula essa|"
+    (re.compile(r"^(a )?(proxima|proximo|prassima|prossima|proxima musica|proximo video|proxima faixa|pula|pular|pula essa|"
                 r"pula a musica|passa|passa essa|passa a musica|avanca|skip|next)"
                 r"( (no |do )?(youtube music|youtube musica|youtube|you tube|spotify))?$"), "midia", "proxima"),
     (re.compile(r"^(a )?(anterior|volta|voltar|musica anterior|video anterior|volta a musica|volta uma)$"), "midia", "anterior"),
