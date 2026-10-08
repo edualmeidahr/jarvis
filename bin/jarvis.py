@@ -39,6 +39,7 @@ DITADO = 10
 BIN = os.path.expanduser("~/.claude/bin")
 VAULT = os.path.expanduser("~/Documentos/obsidian")
 TAREFAS = os.path.join(VAULT, "07 Tarefas", "Notas")
+DIARIO = os.path.join(VAULT, "01 Diário")
 
 def _modulo(nome):
     spec = importlib.util.spec_from_file_location(nome, os.path.join(BIN, f"{nome}.py"))
@@ -174,6 +175,12 @@ Lembretes e rotinas (timers do sistema), por este comando:
   ~/.claude/bin/lembrar.py listar | cancelar "trecho"
 OnCalendar é o formato do systemd: "Fri 17:00", "Mon..Fri 09:00", "*-*-01 10:00" (dia 1º), "Mon,Wed 08:30".
 "texto" do lembrete é o que vai ser falado na hora: escreva como lembrete, curto ("lançar as horas").
+
+Notas diárias: você pode EDITAR (Edit) e criar (Write) SÓ dentro de 01 Diário, nada mais do vault.
+A nota do dia é 01 Diário/AAAA/MM/AAAA-MM-DD.md, com as seções ## Meus MRs, ## Reviews, ## Foco,
+## Aconteceu, ## Aprendi e ## Amanhã. Mexa só na seção pedida, preserve o resto da nota e os links
+[[...]] como estão; troque o "- " vazio da seção em vez de deixar uma linha em branco sobrando.
+"A nota de ontem" é a do último dia útil antes de hoje que tiver nota. Depois, confirme em uma frase.
 
 Memória permanente (o que ele pediu para lembrar), por este comando:
   ~/.claude/bin/memoria.py guardar "fato" | esquecer "trecho" | listar
@@ -755,7 +762,9 @@ def comando_claude(sessao=False, pergunta=None, sistema_extra=""):
                   f"Bash({os.path.join(BIN, 'fontes.py')} *)", "Bash(~/.claude/bin/fontes.py *)",
                   # busca na web liberada: "qual a previsão amanhã", "o que mudou no Node 24"
                   "WebSearch", "WebFetch",
-                  "--disallowedTools", "Edit", "Write", "NotebookEdit"]
+                  # notas diárias: editar e criar SÓ dentro de 01 Diário (caminho absoluto: "//" na regra)
+                  f"Edit(/{DIARIO}/**)", f"Write(/{DIARIO}/**)",
+                  "--disallowedTools", "NotebookEdit"]
 
 
 def rodar_claude(cmd, demorou):
