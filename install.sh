@@ -58,7 +58,9 @@ links() {
   "allowed_origins": ["chrome-extension://$id/"]
 }
 EOF
-  chmod +x "$REPO"/bin/*.py "$REPO"/bin/*.sh
+  chmod +x "$REPO"/bin/*.py "$REPO"/bin/*.sh "$REPO"/tests/*.py "$REPO"/tests/pre-commit
+  # o git roda o teste das frases antes de cada commit
+  [ -d "$REPO/.git" ] && ln -sf ../../tests/pre-commit "$REPO/.git/hooks/pre-commit"
   systemctl --user daemon-reload
 }
 

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Gancho do git: não deixa commitar com frase falhando. Instalado pelo install.sh em .git/hooks.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+if ! python3 tests/rodar.py >/tmp/jarvis-teste-frases.txt 2>&1; then
+  cat /tmp/jarvis-teste-frases.txt
+  echo "commit recusado: o teste das frases falhou (tests/rodar.py)" >&2
+  exit 1
+fi

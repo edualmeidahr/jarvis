@@ -194,7 +194,8 @@ ACOES = [
     (re.compile(rf"^(entra|entre|entrar|vai|va|abre|abra|abrir|abri|abriu) (no |o )?(?P<onde>{ONDE_TOCAR}) e {VERBO_TOCAR} (?P<arg>.+)$"), "tocar", True),
     (re.compile(rf"^{VERBO_TOCAR} (?P<arg>.+ (no|na) ({ONDE_TOCAR}))$"), "tocar", True),
     # sem "YouTube" na frase, só com "Jarvis": "toca no assunto com ele" é ditado
-    (re.compile(rf"^{VERBO_TOCAR} (?P<arg>.+)$"), "tocar", False),
+    # "coloca o volume em 4" é volume, não música: o verbo é o mesmo
+    (re.compile(rf"^{VERBO_TOCAR} (?!(o |a )?(volume|som)\b)(?P<arg>.+)$"), "tocar", False),
     (re.compile(r"^(abre|abra|abrir|abri|abriu|inicia|inicie|liga|ligue|executa|execute) (?P<arg>.+)$"), "abrir", True),
     # mídia, no estilo Alexa: frase curta sozinha, age no que está tocando
     (re.compile(r"^(pausa|pause|pausar|pauser|pausair|pauza|para|pare|parar|stop)"
