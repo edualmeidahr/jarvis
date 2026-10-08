@@ -111,6 +111,7 @@ bolha = _modulo("bolha")
 cerebro = _modulo("cerebro")
 briefing = _modulo("briefing")
 fontes = _modulo("fontes")
+trilha = _modulo("trilha")
 TRATAMENTO = config.get("JARVIS_TRATAMENTO", "senhor")
 
 
@@ -816,17 +817,29 @@ NIVEL_TRILHA = float(config.get("JARVIS_MUSICA_FUNDO", "0.6"))
 
 class MusicaDeFundo:
     """A trilha do bom dia, como no vídeo: começa junto com a saudação e fica baixa enquanto ele fala.
-    Se já estiver tocando alguma coisa, não troca: só abaixa. No fim volta ao volume normal e segue."""
+    No fim sobe ao volume normal e segue até acabar. Vem do arquivo baixado (trilha.py): do começo,
+    na hora, sem janela. Sem o arquivo, vai pelo YouTube Music desta vez e baixa para a próxima.
+    Se já estiver tocando alguma coisa, não troca: só abaixa."""
 
     def __init__(self):
-        self.fim, self.duck = threading.Event(), None
+        self.fim, self.duck, self.fio = threading.Event(), None, None
         if MUSICA_BOM_DIA:
-            threading.Thread(target=self._rodar, daemon=True).start()
+            self.fio = threading.Thread(target=self._rodar, daemon=True)
+            self.fio.start()
 
     def _rodar(self):
         e = acao.tocando()
-        if not (e and e["status"] == "Playing"):
+        ja_toca = e and e["status"] == "Playing"
+        if not ja_toca and trilha.arquivo():
+            trilha.tocar(trilha.arquivo(), NIVEL_TRILHA)
+            self.fim.wait()
+            if trilha.pid_ativo():
+                trilha.volume(1.0, fade_s=1.5)  # termina a fala, a música sobe e segue
+            return
+        if not ja_toca:
             acao.tocar(MUSICA_BOM_DIA)
+            subprocess.Popen(["python3", os.path.join(BIN, "trilha.py"), "baixar", MUSICA_BOM_DIA],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         for _ in range(30):  # o player leva uns segundos para começar, e o som dele mais um pouco
             e = acao.tocando()
             tocando = e and e["status"] == "Playing" and acao.abaixar_musica.streams_de_saida()
@@ -842,11 +855,13 @@ class MusicaDeFundo:
 
     def acabar(self):
         self.fim.set()
+        if self.fio:  # espera a música subir (e o volume voltar) antes de o processo sair
+            self.fio.join(4)
 
 
 def frases_do_claude(pedido, guardar):
-    """pedido: o texto, ou uma função que o monta (roda na thread, sem atrasar quem fala)."""
     """As frases do Claude conforme ele escreve (gerador), para a fala começar pela primeira.
+    pedido: o texto, ou uma função que o monta (roda na thread, sem atrasar quem fala).
     guardar(texto inteiro) recebe a resposta no fim."""
     fila, buf = queue.Queue(), [""]
 

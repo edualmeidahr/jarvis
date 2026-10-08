@@ -250,6 +250,10 @@ def abrir_no_app(nome, endereco):
         soltar(["xdg-open", endereco])
 
 
+_spec_t = importlib.util.spec_from_file_location("trilha", os.path.join(os.path.dirname(os.path.realpath(__file__)), "trilha.py"))
+trilha_mod = importlib.util.module_from_spec(_spec_t)
+_spec_t.loader.exec_module(trilha_mod)
+
 _spec_m = importlib.util.spec_from_file_location("musica", os.path.join(os.path.dirname(os.path.abspath(__file__)), "musica.py"))
 musica = importlib.util.module_from_spec(_spec_m)
 _spec_m.loader.exec_module(musica)
@@ -398,11 +402,23 @@ def musica_pela_extensao():
             "titulo": r.get("titulo", ""), "artista": r.get("artista", ""), "app": "YouTube Music"}
 
 
+def _trilha_tocando():
+    """A trilha do bom dia (arquivo, trilha.py) como se fosse um player."""
+    pid = trilha_mod.pid_ativo()
+    if not pid:
+        return None
+    i = trilha_mod.info()
+    return {"player": "trilha", "status": "Playing", "titulo": i["titulo"], "artista": i["artista"], "app": ""}
+
+
 def tocando():
     """O player que está em play; se nenhum, o pausado (é ele que "continua" quer); ou None.
 
     O YouTube Music entra pela extensão, e ganha no empate. O Chrome mostra ao MPRIS uma sessão
     só, que pode ser um podcast pausado enquanto o YouTube Music toca: pela extensão não erra."""
+    trilha_ = _trilha_tocando()
+    if trilha_:  # a trilha toca por cima de tudo: é dela que "pausa" e "que música é essa?" falam
+        return trilha_
     estados = [_estado(p) for p in players()]
     ytm = musica_pela_extensao()
     if ytm:
@@ -449,6 +465,11 @@ def midia(o_que):
     if not e:
         return "Não tem nada tocando agora."
     p = e["player"]
+    if p == "trilha":  # arquivo: não tem pausa nem próxima; qualquer um desses para a trilha
+        if o_que == "continuar":
+            return f"Já está tocando: {e['titulo']}."
+        trilha_mod.parar()
+        return "Parei a trilha."
     if p == EXTENSAO:
         if o_que == "pausar" and e["status"] != "Playing":
             return f"Já está pausado: {descrever(e)}."
@@ -600,6 +621,8 @@ class abaixar_musica:
             memoria = json.load(open(cls.MEMORIA))
         except (OSError, ValueError):
             memoria = {}
+        if nome == "Jarvis trilha":  # a trilha do bom dia: o normal dela é sempre 100%
+            return "1.00"
         if float(atual) >= 0.5:
             if memoria.get(nome) != atual:
                 memoria[nome] = atual
