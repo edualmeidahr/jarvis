@@ -14,7 +14,7 @@ PATH="$HOME/.local/bin:$PATH"
 # não roda duas vezes ao mesmo tempo (atalho apertado duas vezes, ou o timer das 7h)
 exec 9>"$CACHE/manha.lock"
 if ! flock -n 9; then
-  python3 "$BIN/bolha.py" --fim "Já estou atualizando o GitLab" "Só um instante."
+  python3 "$BIN/bolha.py" --fim --importante "Já estou atualizando o GitLab" "Só um instante."
   exit 2
 fi
 
@@ -26,9 +26,9 @@ status=$?
 
 erro=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("erro") or "")' "$CACHE/gitlab.json" 2>/dev/null)
 if [ -n "$erro" ]; then
-  python3 "$BIN/bolha.py" --fim "Não consegui falar com o GitLab" "Fiquei com o último dado bom. ($erro)"
+  python3 "$BIN/bolha.py" --fim --importante "Não consegui falar com o GitLab" "Fiquei com o último dado bom. ($erro)"
 else
   corpo=$(python3 "$BIN/painel.py" --resumo | sed 's/^GitLab — //')
-  python3 "$BIN/bolha.py" --fim "Atualizei o painel" "${corpo:-Nada pendente no GitLab.}"
+  python3 "$BIN/bolha.py" --fim --importante "Atualizei o painel" "${corpo:-Nada pendente no GitLab.}"
 fi
 exit "$status"

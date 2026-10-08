@@ -10,7 +10,12 @@ Antes, cada etapa era uma notificação nova e elas empilhavam: o voz.sh pedia p
 substituir com a dica do notify-osd (x-canonical-private-synchronous), que o GNOME
 ignora. Aqui a troca é pelo id (`notify-send -r`), que o GNOME respeita.
 
-Também importável: `bolha.mostrar(titulo, corpo, fim=False, som=None)`.
+Também importável: `bolha.mostrar(titulo, corpo, fim=False, som=None, importante=False)`.
+
+Só as importantes aparecem (--importante): lembrete, ditado pronto para colar, o que você aciona por
+tecla e problema que pede ação sua. O resto (ouvindo, pensando, a resposta…) o ponto na barra, a tela
+e a voz já mostram — notificação a cada passo era ruído. O som toca sempre.
+JARVIS_NOTIFICACOES=todas no local.env volta a mostrar tudo.
 """
 import math
 import os
@@ -96,10 +101,20 @@ def _id_atual():
     return None
 
 
-def mostrar(titulo, corpo="", fim=False, som_=None, nova=False):
+def _config(chave, padrao):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("config", os.path.join(os.path.dirname(os.path.realpath(__file__)), "config.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.get(chave, padrao)
+
+
+def mostrar(titulo, corpo="", fim=False, som_=None, nova=False, importante=False):
     _preparar()
     if som_:
         som(som_)
+    if not importante and _config("JARVIS_NOTIFICACOES", "importantes") != "todas":
+        return
     cmd = ["notify-send", "-a", "Jarvis", "-i", ICONE, "-p"]
     anterior = None if nova else _id_atual()
     if anterior:
@@ -131,15 +146,16 @@ def main():
     args = sys.argv[1:]
     fim = "--fim" in args
     nova = "--nova" in args
+    importante = "--importante" in args
     som_ = None
     if "--som" in args:
         i = args.index("--som")
         som_ = args[i + 1]
         del args[i:i + 2]
-    args = [a for a in args if a not in ("--fim", "--nova")]
+    args = [a for a in args if a not in ("--fim", "--nova", "--importante")]
     if not args:
         sys.exit(__doc__)
-    mostrar(args[0], args[1] if len(args) > 1 else "", fim=fim, som_=som_, nova=nova)
+    mostrar(args[0], args[1] if len(args) > 1 else "", fim=fim, som_=som_, nova=nova, importante=importante)
 
 
 if __name__ == "__main__":

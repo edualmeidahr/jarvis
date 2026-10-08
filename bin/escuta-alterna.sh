@@ -11,12 +11,12 @@ MARCA="$HOME/.config/jarvis/escuta-desligada"
 if systemctl --user is-active --quiet jarvis-escuta; then
   mkdir -p "$(dirname "$MARCA")" && touch "$MARCA"
   systemctl --user stop jarvis-escuta
-  python3 "$B" --nova --fim "Parei de ouvir" "Agora só pelo Insert. Ctrl+Alt+J liga de novo."
+  python3 "$B" --nova --fim --importante "Parei de ouvir" "Agora só pelo Insert. Ctrl+Alt+J liga de novo."
 else
   rm -f "$MARCA"
   if systemctl --user start jarvis-escuta; then
-    python3 "$B" --nova --fim "Estou ouvindo" "É só dizer “Ei Jarvis”. Ctrl+Alt+J desliga."
+    python3 "$B" --nova --fim --importante "Estou ouvindo" "É só dizer “Ei Jarvis”. Ctrl+Alt+J desliga."
   else
-    python3 "$B" --nova --fim "Não consegui ligar a escuta" "Veja: systemctl --user status jarvis-escuta"
+    python3 "$B" --nova --fim --importante "Não consegui ligar a escuta" "Veja: systemctl --user status jarvis-escuta"
   fi
 fi

@@ -997,7 +997,8 @@ próximo passo."""
 
 
 def olhar_tela(pergunta):
-    bolha.mostrar("Me mostra o que você quer", "Escolha a tela, uma janela ou um pedaço e aperte Enter.")
+    bolha.mostrar("Me mostra o que você quer", "Escolha a tela, uma janela ou um pedaço e aperte Enter.",
+                  importante=True)
     r = subprocess.run([os.path.join(BIN, "print.py")], capture_output=True, text=True)
     caminho = r.stdout.strip()
     if r.returncode or not caminho:

@@ -55,7 +55,7 @@ fi
 # --- pré-requisitos ---
 for alvo in "$BIN" "$MODELO"; do
   if [ ! -f "$alvo" ]; then
-    aviso --fim "Estou sem o meu modelo de voz" "Falta $(basename "$alvo")."
+    aviso --fim --importante "Estou sem o meu modelo de voz" "Falta $(basename "$alvo")."
     exit 1
   fi
 done
@@ -86,13 +86,13 @@ rm -f "$PID"
 # e deixava o "Ei Jarvis" sem resposta — descarta
 if [ -e "$EST/limite" ]; then
   rm -f "$EST/limite" "$WAV"
-  aviso --fim "Descartei a gravação do Insert" "Ficou 2 minutos gravando sem você parar."
+  aviso --fim --importante "Descartei a gravação do Insert" "Ficou 2 minutos gravando sem você parar."
   exit 0
 fi
 fi
 
 if [ ! -s "$WAV" ]; then
-  aviso --fim "Não consegui ouvir o microfone" "Confere se ele está ligado."
+  aviso --fim --importante "Não consegui ouvir o microfone" "Confere se ele está ligado."
   exit 1
 fi
 
@@ -141,9 +141,9 @@ fi
 
 if command -v wl-copy >/dev/null; then
   printf '%s' "$texto" | wl-copy
-  aviso --fim "Pronto para colar" "$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import bolha; print(bolha.aspas(sys.argv[2]))' "$HOME/.claude/bin" "$texto")"
+  aviso --fim --importante "Pronto para colar" "$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import bolha; print(bolha.aspas(sys.argv[2]))' "$HOME/.claude/bin" "$texto")"
 else
   printf '%s' "$texto" > "$EST/ultimo.txt"
-  aviso --fim "Anotei, mas não consegui copiar" "$texto"
+  aviso --fim --importante "Anotei, mas não consegui copiar" "$texto"
 fi
 printf '%s\n' "$texto"
