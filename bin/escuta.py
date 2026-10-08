@@ -89,10 +89,52 @@ def gravar_wav(amostras, caminho=WAV):
         w.writeframes(amostras.astype(np.int16).tobytes())
 
 
+class Gravacao:
+    """Um pw-record que não trava: fechou ou ficou SEM_SOM_S sem mandar nada, reabre.
+    Antes, a escuta saía "com sucesso" (e o serviço não voltava) ou esperava para sempre."""
+
+    def __init__(self, alvo, nome):
+        self.alvo, self.nome = alvo, nome
+        self.proc = self._abrir()
+
+    def _abrir(self):
+        alvo = ["--target", self.alvo] if self.alvo else []
+        return subprocess.Popen(["pw-record", "--rate", str(TAXA), "--channels", "1", "--format", "s16", *alvo, "-"],
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+    def _ler_bytes(self, n):
+        fd = self.proc.stdout.fileno()
+        dados = b""
+        while len(dados) < n:
+            pronto, _, _ = select.select([fd], [], [], SEM_SOM_S)
+            if not pronto:
+                return None
+            pedaco = os.read(fd, n - len(dados))
+            if not pedaco:
+                return None
+            dados += pedaco
+        return dados
+
+    def ler(self):
+        for tentativa in range(5):
+            dados = self._ler_bytes(BLOCO * 2)
+            if dados is not None:
+                return np.frombuffer(dados, np.int16)
+            log(f"microfone {self.nome} parou (pw-record: {self.proc.poll()}); reabrindo")
+            self.proc.terminate()
+            time.sleep(1 + tentativa)
+            self.proc = self._abrir()
+        raise RuntimeError(f"o microfone {self.nome} parou 5 vezes seguidas")
+
+    def fechar(self):
+        self.proc.terminate()
+
+
 class Escuta:
     def __init__(self, teste=False):
         self.teste = teste
         self.modelo = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
+        self.modelo_limpo = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
         self.vad = VAD()
         self.ativos, self.trava = 0, threading.Lock()  # voz.sh rodando (pode haver dois: interrupção)
         self.surdo_ate = 0.0
@@ -100,6 +142,11 @@ class Escuta:
         self.continuar = False             # respondeu falando: ouvir a continuação
         self.sem_eco = False
         self.voz_seguida = 0               # blocos seguidos com voz enquanto o Jarvis fala
+
+    def _zerar(self):
+        # o buffer interno dos detectores ainda tem o "Jarvis" de agora há pouco
+        self.modelo.reset()
+        self.modelo_limpo.reset()
 
     def ocupado(self):
         return self.ativos > 0
@@ -114,44 +161,29 @@ class Escuta:
             return None
 
     def microfone(self):
-        alvo = []
+        """Abre as duas gravações. A normal manda: detector e pedidos. A sem eco (serviço jarvis-aec)
+        só ajuda: segundo detector e interrupção pela voz. Medido em 07/10: o filtro do microfone
+        sem eco deformava a voz e o detector errava 3 de 5 "Ei Jarvis" — por isso ele não manda."""
+        self.bruto = Gravacao(None, "normal")
         existe = subprocess.run(["pw-cli", "info", MIC_SEM_ECO], capture_output=True).returncode == 0
-        if existe:  # sem o jarvis-aec, o microfone normal: funciona igual, só com mais eco
-            alvo = ["--target", MIC_SEM_ECO]
+        self.limpo = Gravacao(MIC_SEM_ECO, "sem eco") if existe else None
         self.sem_eco = existe
-        log(f"microfone: {'sem eco (jarvis-aec)' if existe else 'normal (jarvis-aec desligado)'}")
-        return subprocess.Popen(["pw-record", "--rate", str(TAXA), "--channels", "1", "--format", "s16", *alvo, "-"],
-                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-
-    def _ler_bytes(self, n):
-        """n bytes do microfone, ou None se ele fechou OU ficou SEM_SOM_S sem mandar nada.
-        O segundo caso é o pior: o microfone some, a gravação não fecha, e a leitura esperava
-        para sempre — a escuta ficava surda sem nenhum registro."""
-        fd = self.mic.stdout.fileno()
-        dados = b""
-        while len(dados) < n:
-            pronto, _, _ = select.select([fd], [], [], SEM_SOM_S)
-            if not pronto:
-                return None
-            pedaco = os.read(fd, n - len(dados))
-            if not pedaco:
-                return None
-            dados += pedaco
-        return dados
+        self.bloco_limpo = None
+        log(f"microfone: normal{' + sem eco (jarvis-aec)' if existe else ' (jarvis-aec desligado)'}")
+        return self.bruto
 
     def ler(self, mic=None):
-        """Um bloco do microfone. Se a gravação fechar (o microfone sem eco se reconecta quando a
-        saída de som muda), reabre e segue. Antes, a escuta terminava "com sucesso" e o serviço
-        não voltava: ela ficava surda sem nenhum aviso."""
-        for tentativa in range(5):
-            dados = self._ler_bytes(BLOCO * 2)
-            if dados is not None:
-                return np.frombuffer(dados, np.int16)
-            log(f"microfone parou (pw-record: {self.mic.poll()}); reabrindo")
-            self.mic.terminate()
-            time.sleep(1 + tentativa)
-            self.mic = self.microfone()
-        raise RuntimeError("o microfone fechou 5 vezes seguidas")
+        """Um bloco do microfone normal. O do sem eco é lido junto (fica em self.bloco_limpo):
+        os dois andam no mesmo ritmo, e o cano de um não enche enquanto o outro é lido."""
+        bloco = self.bruto.ler()
+        if self.limpo:
+            try:
+                self.bloco_limpo = self.limpo.ler()
+            except RuntimeError:
+                log("microfone sem eco falhou de vez: sigo só com o normal")
+                self.limpo.fechar()
+                self.limpo, self.sem_eco, self.bloco_limpo = None, False, None
+        return bloco
 
     def ouvir_pedido(self, mic, espera_s=ESPERA_FALA_S):
         """Grava do microfone até você parar de falar. Devolve as amostras, ou None se não falou."""
@@ -249,8 +281,7 @@ class Escuta:
         self.entregar(amostras, tentativa, continuacao)
 
     def rodar(self):
-        self.mic = self.microfone()
-        mic = self.mic
+        mic = self.microfone()
         acao.abaixar_musica.recuperar()  # se o serviço caiu com a música abaixada, devolve
         log("ouvindo \"Ei Jarvis\"")
         estado.marcar("parado")
@@ -258,6 +289,8 @@ class Escuta:
             while True:
                 bloco = self.ler(mic)
                 nota = self.modelo.predict(bloco)["hey_jarvis"]
+                if self.bloco_limpo is not None:  # vale a maior nota dos dois microfones
+                    nota = max(nota, self.modelo_limpo.predict(self.bloco_limpo)["hey_jarvis"])
                 if self.teste:
                     if nota > 0.05:
                         print(f"{time.strftime('%T')} nota {nota:.2f}" + ("  ← acordaria" if nota >= LIMIAR else ""),
@@ -267,7 +300,8 @@ class Escuta:
                 pid = self.falando()
                 # sem eco, dá para interromper só falando: a voz dele não chega ao microfone
                 if pid and self.sem_eco and nota < LIMIAR:
-                    self.voz_seguida = self.voz_seguida + 1 if self.vad.predict(bloco) > VAD_FALA else 0
+                    voz = self.bloco_limpo is not None and self.vad.predict(self.bloco_limpo) > VAD_FALA
+                    self.voz_seguida = self.voz_seguida + 1 if voz else 0
                     if self.voz_seguida * BLOCO / TAXA >= INTERROMPER_S:
                         nota = 1.0  # trata como "Ei Jarvis": corta a fala e ouve
                         log("interrompido pela sua voz (sem eco)")
@@ -285,18 +319,18 @@ class Escuta:
                     self.continuar, self.de_novo = False, 0
                     log(f"interrompido (nota {nota:.2f})")
                     self.acordar(mic)
-                    self.modelo.reset()
+                    self._zerar()
                     continue
                 if self.continuar and not self.ocupado():
                     self.continuar = False
                     self.acordar(mic, continuacao=True)
-                    self.modelo.reset()
+                    self._zerar()
                     continue
                 if self.de_novo and not self.ocupado():
                     tentativa, self.de_novo = self.de_novo, 0
                     log(f"só ouvi o nome: ouvindo de novo (tentativa {tentativa})")
                     self.acordar(mic, tentativa)
-                    self.modelo.reset()
+                    self._zerar()
                     continue
                 if self.ocupado() or agora < self.surdo_ate:
                     continue
@@ -309,7 +343,7 @@ class Escuta:
                 if nota >= LIMIAR:
                     log(f"acordei (nota {nota:.2f})")
                     self.acordar(mic)
-                    self.modelo.reset()  # o buffer interno ainda tem o "Jarvis" de agora há pouco
+                    self._zerar()  # o buffer interno ainda tem o "Jarvis" de agora há pouco
         except KeyboardInterrupt:
             pass
         except Exception:
@@ -318,7 +352,9 @@ class Escuta:
             log("erro, reiniciando:\n" + traceback.format_exc())
             raise SystemExit(1)
         finally:
-            self.mic.terminate()
+            self.bruto.fechar()
+            if self.limpo:
+                self.limpo.fechar()
 
 
 if __name__ == "__main__":
