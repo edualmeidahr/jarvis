@@ -39,6 +39,8 @@ def resumo(frase):
         return f"comando {valor}"
     if tipo == "tarefa":
         return f"tarefa {valor[0]}"
+    if tipo == "fonte":
+        return f"fonte {valor[0]} {jarvis.normalizar(valor[1])}".strip()
     if tipo == "lembrete":
         return f"lembrete {valor[0]} {valor[1]}"
     if tipo == "traduzir":

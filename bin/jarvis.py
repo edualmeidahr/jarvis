@@ -96,6 +96,7 @@ editar = _modulo("editar-tarefa")
 bolha = _modulo("bolha")
 cerebro = _modulo("cerebro")
 briefing = _modulo("briefing")
+fontes = _modulo("fontes")
 TRATAMENTO = config.get("JARVIS_TRATAMENTO", "senhor")
 
 
@@ -163,7 +164,11 @@ Memória permanente (o que ele pediu para lembrar), por este comando:
   ~/.claude/bin/memoria.py guardar "fato" | esquecer "trecho" | listar
 Os fatos guardados vêm junto, no mesmo lugar.
 A CONVERSA RECENTE, se houver, também está no fim: use para entender "e depois?", "e ele?", "o segundo".
-Para o que é de fora (notícia, clima, documentação, preço, qualquer fato atual), pesquise na web
+Para futebol (placar ao vivo, resultado, próximo jogo) e notícias recentes sobre um tema, use PRIMEIRO
+estas fontes, que são instantâneas e atuais (a busca na web é lenta e atrasada para o que é ao vivo):
+  ~/.claude/bin/fontes.py futebol "<time>"
+  ~/.claude/bin/fontes.py noticias "<tema>"
+Para o resto do que é de fora (documentação, preço, qualquer outro fato atual), pesquise na web
 com WebSearch e responda pelo que achou, sem citar link nem site. Uma busca costuma bastar.
 A busca devolve um lembrete para citar as fontes: aqui a resposta é falada, então ignore e não comente.
 Se não souber ou não tiver acesso, diga isso numa frase. Não invente."""
@@ -392,6 +397,34 @@ def segundos(n, u, n2=None):
     return total
 
 
+# fontes rápidas (fontes.py): futebol ao vivo e notícias por tema, sem a busca lenta do Claude
+TIME_ = r"(?P<time>[a-z][a-z \-]*?)"
+FUTEBOL = [
+    re.compile(r"^quem (esta|ta) ganhando( o jogo)?( agora)?$"),  # antes: senão "quem" vira time
+    re.compile(rf"^(como|quanto) (esta|ta|foi|ficou|terminou) o jogo( d[oa])?( {TIME_})?( agora| hoje| ontem)?$"),
+    re.compile(rf"^(qual (e |foi )?o )?(placar|resultado)( do jogo)?( d[oa]| de)? {TIME_}( agora| hoje| ontem)?$"),
+    re.compile(rf"^(o |a )?{TIME_} (esta|ta) (ganhando|perdendo|jogando|empatando)( agora)?$"),
+    re.compile(rf"^(o |a )?{TIME_} (ganhou|perdeu|empatou|venceu)( ontem| hoje| o ultimo jogo)?$"),
+    re.compile(rf"^(quando|que horas) (e o proximo jogo|joga|vai jogar|e o jogo)( d[oa])? {TIME_}( de novo| hoje)?$"),
+    re.compile(rf"^(qual (e )?o )?proximo jogo( d[oa])? {TIME_}$"),
+    re.compile(rf"^tem jogo( d[oa])? {TIME_}( hoje| amanha)?$"),
+]
+NOTICIAS_TEMA = re.compile(r"^((quais (sao )?|tem |me (da|de|conta|fala) )?(as |alguma )?)?(noticias|novidades) "
+                           r"(d[oa]s?|de|sobre|com) (?P<tema>.+)$")
+
+
+def reconhecer_fonte(resto):
+    for p in FUTEBOL:
+        m = p.match(resto)
+        if m:
+            time = re.sub(r"^(o|a) ", "", (m.groupdict().get("time") or "").strip())
+            return "futebol", "" if time in ("", "meu time", "time") else time
+    m = NOTICIAS_TEMA.match(resto)
+    if m and m["tema"] not in ("hoje", "do dia", "de hoje"):
+        return "noticias", m["tema"]
+    return None
+
+
 def reconhecer_assistente(resto, chamou):
     """As regras novas, antes das ações: (tipo, valor) ou None."""
     if chamou and PARAR_DE_FALAR.match(resto) and time.time() - _mtime(INTERROMPIDO) < 20:
@@ -475,6 +508,9 @@ def reconhecer(texto):
     for padrao, nome in COMANDOS:
         if padrao.match(resto):
             return "comando", nome
+    fonte = reconhecer_fonte(resto) if chamou else None
+    if fonte:
+        return "fonte", fonte
     novo = reconhecer_assistente(resto, chamou)
     if novo and (chamou or novo[0] in ("lembrete", "traduzir")):
         return novo
@@ -698,6 +734,7 @@ def comando_claude(sessao=False, pergunta=None, sistema_extra=""):
                   f"Bash({os.path.join(BIN, 'editar-tarefa.py')} *)", "Bash(~/.claude/bin/editar-tarefa.py *)",
                   f"Bash({os.path.join(BIN, 'lembrar.py')} *)", "Bash(~/.claude/bin/lembrar.py *)",
                   f"Bash({os.path.join(BIN, 'memoria.py')} *)", "Bash(~/.claude/bin/memoria.py *)",
+                  f"Bash({os.path.join(BIN, 'fontes.py')} *)", "Bash(~/.claude/bin/fontes.py *)",
                   # busca na web liberada: "qual a previsão amanhã", "o que mudou no Node 24"
                   "WebSearch", "WebFetch",
                   "--disallowedTools", "Edit", "Write", "NotebookEdit"]
@@ -919,6 +956,16 @@ def main():
         if mostrar:
             print(f"ditado → clipboard: {texto}")
         return DITADO
+
+    if tipo == "fonte":
+        nome, arg = valor
+        if mostrar:
+            print(f"fonte {nome} ← {arg!r}")
+            return 0
+        fala = fontes.futebol(arg or None) if nome == "futebol" else fontes.noticias(arg)
+        notificar(texto, fala)
+        falar.tocar(fala)
+        return 0
 
     if tipo == "encerrar":
         if mostrar:

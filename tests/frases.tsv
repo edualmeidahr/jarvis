@@ -223,4 +223,19 @@ Jarvis, quais são as notícias de hoje?	comando noticias
 Jarvis, me dá as notícias	comando noticias
 Jarvis, o que está acontecendo no mundo?	comando noticias
 Jarvis, qual a previsão do tempo para o fim de semana?	claude
-Jarvis, quais as notícias do Cruzeiro?	claude
+Jarvis, quais as notícias do Cruzeiro?	fonte noticias cruzeiro
+
+# --- Futebol e notícias por tema (08/10): fontes.py, sem a busca lenta
+Jarvis, como está o jogo do Cruzeiro?	fonte futebol cruzeiro
+Jarvis, qual o placar do Cruzeiro?	fonte futebol cruzeiro
+Jarvis, o Cruzeiro está ganhando?	fonte futebol cruzeiro
+Jarvis, o Cruzeiro ganhou ontem?	fonte futebol cruzeiro
+Jarvis, quando é o próximo jogo do Flamengo?	fonte futebol flamengo
+Jarvis, quando joga o Atlético?	fonte futebol atletico
+Jarvis, tem jogo do Cruzeiro hoje?	fonte futebol cruzeiro
+Jarvis, como está o jogo?	fonte futebol
+Jarvis, quem está ganhando?	fonte futebol
+Jarvis, notícias do Cruzeiro	fonte noticias cruzeiro
+Jarvis, tem notícias sobre inteligência artificial?	fonte noticias inteligencia artificial
+Jarvis, quais as notícias de hoje?	comando noticias
+Jarvis, o MR está aprovado?	claude
