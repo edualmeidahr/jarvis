@@ -48,6 +48,8 @@ MAX_PEDIDO_S = 15.0
 CAUDA_DO_NOME_S = 1.5        # depois de acordar, a fala só conta como pedido depois do 1º silêncio
                              # (o fim do "Jarvis"); emendado sem pausa, conta depois deste tempo
 CONTINUACAO_S = 5.0
+FALA_MINIMA_CONTINUACAO_S = 0.5  # na continuação, menos voz que isso é ruído, não pedido
+MAX_CONTINUACOES = 2             # respostas emendadas sem "Ei Jarvis": depois disso, só chamando de novo
 SEM_SOM_S = 5.0              # o microfone manda 16 mil amostras por segundo: 5 s sem nada = travou
 VOZ_LIMITE_S = 150           # um pedido (transcrever + Claude + falar) não passa disso
 MIC_SEM_ECO = "jarvis_mic_sem_eco"  # serviço jarvis-aec: o microfone com a saída de som subtraída
@@ -142,6 +144,7 @@ class Escuta:
         self.surdo_ate = 0.0
         self.de_novo = 0                   # tentativa seguinte, quando a fala foi só o nome
         self.continuar = False             # respondeu falando: ouvir a continuação
+        self.continuacoes = 0              # quantas emendadas sem "Ei Jarvis"
         self.sem_eco = False
         self.voz_seguida = 0               # blocos seguidos com voz enquanto o Jarvis fala
 
@@ -191,6 +194,7 @@ class Escuta:
         """Grava do microfone até você parar de falar. Devolve as amostras, ou None se não falou."""
         blocos, falou, silencio, inicio = [], False, 0.0, time.time()
         nome_acabou = espera_s == CONTINUACAO_S  # na continuação não houve nome
+        fala_s = 0.0
         calado = 0
         self.pico, self.vad_max = 0, 0.0  # diagnóstico do "ninguém falou"
         passo = BLOCO / TAXA
@@ -198,7 +202,9 @@ class Escuta:
         while True:
             bloco = self.ler(mic)
             blocos.append(bloco)
-            nota_vad = self.vad.predict(bloco)
+            # a voz é decidida pelo microfone sem eco quando existe: ele não ouve a música nem a voz
+            # do Jarvis saindo pelas caixas, que antes viravam "pedido" (a letra da música transcrita)
+            nota_vad = self.vad.predict(self.bloco_limpo if self.bloco_limpo is not None else bloco)
             self.pico, self.vad_max = max(self.pico, int(np.abs(bloco).max())), max(self.vad_max, nota_vad)
             voz = nota_vad > VAD_FALA
             # o resto do "Jarvis" não conta como pedido: antes ele marcava o início da fala, a pausa de
@@ -218,6 +224,7 @@ class Escuta:
                 blocos = blocos[-(folga + 1):]  # o silêncio de espera só atrasaria o Whisper
             if voz:
                 falou, silencio = True, 0.0
+                fala_s += passo
             else:
                 silencio += passo
             decorrido = time.time() - inicio
@@ -225,6 +232,8 @@ class Escuta:
                 gravar_wav(np.concatenate(blocos[-int(espera_s / passo):]), os.path.join(EST, "ninguem.wav"))
                 return None
             if falou and silencio >= SILENCIO_FIM_S:
+                if espera_s == CONTINUACAO_S and fala_s < FALA_MINIMA_CONTINUACAO_S:
+                    return None  # na continuação, um "hum" ou um ruído curto não vira pedido
                 break
             if decorrido > MAX_PEDIDO_S:
                 break
@@ -340,8 +349,15 @@ class Escuta:
                     continue
                 if self.continuar and not self.ocupado():
                     self.continuar = False
-                    self.acordar(mic, continuacao=True)
-                    self._zerar()
+                    e = acao.tocando()
+                    if e and e["status"] == "Playing":
+                        log("continuação pulada: tem música tocando")
+                    elif self.continuacoes >= MAX_CONTINUACOES:
+                        log("continuação pulada: já foram duas seguidas")
+                    else:
+                        self.continuacoes += 1
+                        self.acordar(mic, continuacao=True)
+                        self._zerar()
                     continue
                 if self.de_novo and not self.ocupado():
                     tentativa, self.de_novo = self.de_novo, 0
@@ -358,6 +374,7 @@ class Escuta:
                 elif os.path.exists(PID_INSERT):
                     continue
                 if nota >= LIMIAR:
+                    self.continuacoes = 0  # chamou pelo nome: a conversa recomeça
                     log(f"acordei (nota {nota:.2f})")
                     self.acordar(mic)
                     self._zerar()  # o buffer interno ainda tem o "Jarvis" de agora há pouco

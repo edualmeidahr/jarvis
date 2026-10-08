@@ -229,7 +229,7 @@ COMANDOS = [
 
 
 # ações de sistema → (função do acao.py, argumento). Frase sozinha, como os comandos.
-NUMEROS = {"zero": 0, "um": 1, "dois": 2, "tres": 3, "quatro": 4, "cinco": 5, "seis": 6, "sete": 7, "oito": 8,
+NUMEROS = {"zero": 0, "um": 1, "dois": 2, "tres": 3, "quatro": 4, "cinco": 5, "seis": 6, "sete": 7, "set": 7, "oito": 8,
            "nove": 9, "dez": 10, "vinte": 20, "trinta": 30, "quarenta": 40, "cinquenta": 50, "sessenta": 60,
            "setenta": 70, "oitenta": 80, "noventa": 90, "cem": 100}
 ONDE_TOCAR = r"youtube music|youtube musica|you tube music|yt music|youtube|you tube"
@@ -267,7 +267,7 @@ ACOES = [
     (re.compile(r"^(volume|som) (no |ao )?(maximo|talo)$"), "volume", "maximo"),
     (re.compile(r"^(volume|som) (no |ao )?minimo$"), "volume", "minimo"),
     (re.compile(r"^(volume|som) (na |pela )?metade$"), "volume", "metade"),
-    (re.compile(r"^(volume|vol|som) (em |no |pra |para )?(?P<arg>\d{1,3}|" + "|".join(NUMEROS) + r")( por cento)?$"), "volume", True),
+    (re.compile(r"^(volume|volumi|vol|som) (em |no |pra |para )?(?P<arg>\d{1,3}|" + "|".join(NUMEROS) + r")( por cento)?$"), "volume", True),
     (re.compile(r"^(aumenta|aumente|abaixa|abaixe|muda|mude|coloca|coloque|poe|ponha|deixa|deixe|bota|bote|sobe|suba|"
                 r"diminui|diminua)( o)?( volume| som)? (para|pra|em|no|ate) (o )?(volume |som )?(?P<arg>\d{1,3}|"
                 + "|".join(NUMEROS) + r")( por cento)?$"), "volume", True),
@@ -972,15 +972,18 @@ def historico():
             "\n".join(f"Ele: {t['voce']}\nVocê: {t['jarvis']}" for t in trocas))
 
 
-def notificar(texto, resposta):
+def notificar(texto, resposta, continuar=True):
     """A resposta fecha a bolha da conversa: em cima o que você disse, embaixo o que ele respondeu.
-    Também guarda a troca (memória da conversa) e avisa a escuta para ouvir a continuação."""
+    Também guarda a troca (memória da conversa) e avisa a escuta para ouvir a continuação.
+    continuar=False: depois de tocar música ou abrir app não há o que continuar — e ouvir com a
+    música tocando transcrevia a letra como se fosse pedido ("AC/Wide Explosão")."""
     if interrompido():
         return
     bolha.mostrar(bolha.aspas(texto, 60), resposta, fim=True)
     registrar(reconhecer_pergunta(texto), resposta)
-    os.makedirs(JV, exist_ok=True)
-    open(CONTINUAR, "w").close()
+    if continuar:
+        os.makedirs(JV, exist_ok=True)
+        open(CONTINUAR, "w").close()
 
 
 def reconhecer_pergunta(texto):
@@ -1213,7 +1216,7 @@ def main():
             espera.join()
         else:
             fala = getattr(acao, nome)(arg) or "Não entendi."
-        notificar(texto, fala)
+        notificar(texto, fala, continuar=False)
         falar.tocar(fala)
         return 0
 

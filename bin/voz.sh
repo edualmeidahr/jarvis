@@ -16,7 +16,9 @@ IDIOMA="${WHISPER_LANG:-pt}"
 NUCLEOS="${WHISPER_THREADS:-$(nproc)}"
 LIMITE_SEG="${VOZ_LIMITE:-120}"   # trava de segurança: para sozinho
 # vocabulário para o whisper: sem isso, "atualiza o GitLab" virou "a tua desarba e tida é bem"
-VOCABULARIO="${WHISPER_PROMPT:-Jarvis, atualiza o GitLab. Abre o VSCodium, o Obsidian, o WhatsApp. Toca no YouTube Music. Pausar música. Próxima. Me lembra daqui a 20 minutos. Lembra que. Traduz isso. O que tem na tela? Aumenta o volume. Volume 4. Que música é essa? Bom dia. Próxima reunião. MR, review, painel.}"
+# só nomes: com frases inteiras ("O que tem na tela?", "Volume 4."), o Whisper devolvia essas frases
+# quando ouvia quase só ruído — o Jarvis "ouvia" pedidos que ninguém fez (08/10)
+VOCABULARIO="${WHISPER_PROMPT:-Jarvis, GitLab, VSCodium, Obsidian, WhatsApp, YouTube Music, MR, review.}"
 
 # o atalho do GNOME roda com PATH enxuto — garante ~/.local/bin
 case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) PATH="$HOME/.local/bin:$PATH" ;; esac

@@ -255,3 +255,7 @@ Jarvis, agora não	encerrar
 Jarvis, sim	claude
 Jarvis, a primeira	claude
 Jarvis, toca Queen	acao tocar queen
+
+# --- Erros do Whisper em números (08/10)
+Jarvis, Volumi Set,	acao volume 7
+Jarvis, Volumi 7.	acao volume 7
