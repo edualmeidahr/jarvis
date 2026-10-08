@@ -85,7 +85,7 @@ Jarvis, Tocar Teodoro e Sampaio.	acao tocar teodoro e sampaio
 Jarvis, Tocar beijuteria.	acao tocar beijuteria
 Jarvis, Toca Teodoro & Sampaio.	acao tocar teodoro sampaio
 Jarvis, Tocar matuê.	acao tocar matue
-Jarvis, Voluminosa Novi.	claude
+Jarvis, Voluminosa Novi.	acao volume 9
 Jarvis, Rengervis.	comando oi
 Jarvis, Tocar highway to hell.	acao tocar highway to hell
 Jarvis, Volume 3.	acao volume 3
@@ -269,3 +269,9 @@ Jarvis, aumenta o volume do sistema.	acao volume sistema mais
 Jarvis, volume geral em 5.	acao volume sistema 5
 Jarvis, abaixa o volume do computador.	acao volume sistema menos
 Jarvis, Volume do sistema no máximo.	acao volume sistema maximo
+# --- Whisper errando "volume N" com música alta (08/10)
+Jarvis, Vazumi Nove.	acao volume 9
+Jarvis, Volume Sinco.	acao volume 5
+Jarvis, Bolume 7.	acao volume 7
+Jarvis, Vazumi Nabi,	claude
+Jarvis, vou dormir.	claude

@@ -280,6 +280,25 @@ ACOES = [
 SISTEMA = re.compile(r" (do sistema|do computador|do pc|geral)\b")
 
 
+def _volume_aproximado(resto):
+    """'vazumi nove', 'volume sinco': o Whisper erra a palavra volume e o número com a música alta.
+    Só com "Jarvis" e só frase de duas palavras: a 1ª parecida com volume (e com m: "vou" não
+    vale), a 2ª um número de 0 a 10 bem parecido. "Vazumi Nabi" segue sem entender: nabi não é nove."""
+    palavras = resto.split()
+    if len(palavras) != 2:
+        return None
+    primeira, numero = palavras
+    if "m" not in primeira or difflib.SequenceMatcher(None, primeira, "volume").ratio() < 0.5:
+        return None
+    if re.fullmatch(r"\d{1,2}", numero) and int(numero) <= 10:
+        return numero
+    notas = sorted(((difflib.SequenceMatcher(None, numero, n).ratio(), n) for n in NUMEROS if NUMEROS[n] <= 10),
+                   reverse=True)
+    if notas[0][0] >= 0.7 and notas[0][0] - notas[1][0] >= 0.2:
+        return str(NUMEROS[notas[0][1]])
+    return None
+
+
 def reconhecer_acao(resto, chamou):
     """(nome, argumento) ou None. 'abrir' só vale se o app existe: 'abre o arquivo e muda X' é ditado."""
     # "aumenta o volume do sistema", "volume geral em 5": o do computador, mesmo com o Spotify tocando
@@ -288,6 +307,9 @@ def reconhecer_acao(resto, chamou):
         r = reconhecer_acao(SISTEMA.sub("", resto, count=1), chamou)
         if r and r[0] == "volume":
             return "volume", f"sistema {r[1]}"
+    volume_torto = _volume_aproximado(resto) if chamou else None
+    if volume_torto:
+        return "volume", volume_torto
     for padrao, nome, arg in ACOES:
         m = padrao.match(resto)
         if not m:
