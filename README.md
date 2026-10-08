@@ -5,6 +5,7 @@ Assistente de voz para o meu Linux (GNOME com Wayland). Roda quase tudo localmen
 ## O que ele faz
 
 - **"Ei Jarvis"** acorda o assistente, e `Insert` dita texto para o clipboard. Depois de uma resposta falada, ele ouve mais 5 segundos sem precisar do nome. Se você começar a falar enquanto ele fala, ele se cala e escuta.
+- **Cérebro sempre ligado**: o serviço `jarvis-cerebro` mantém uma sessão do Claude aberta. Cada pergunta sai em ~1,5 s em vez de ~4 s, porque não paga a partida do `claude` toda vez, e a sessão acompanha a conversa. Sem ele, o Jarvis chama o `claude` direto, como antes.
 - **Microfone sem eco**: o serviço `jarvis-aec` cria um microfone virtual que subtrai o que sai pelas caixas (cancelamento de eco do WebRTC, dentro do PipeWire). A escuta e o ditado usam esse microfone; o Meet e o resto continuam no normal. Sem o serviço, tudo funciona com o microfone normal.
 - **Música e mídia**: toca no YouTube Music ou no YouTube, pausa, pula e controla o volume. A música abaixa sozinha enquanto ele fala.
 - **Apps e sites**: abre por nome ("abre o Obsidian").

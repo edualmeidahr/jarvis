@@ -93,6 +93,7 @@ def _tocar_com_duck(texto):
 falar.tocar = _tocar_com_duck
 editar = _modulo("editar-tarefa")
 bolha = _modulo("bolha")
+cerebro = _modulo("cerebro")
 musica = _modulo("musica")
 
 # o whisper escreve o nome de vários jeitos; o que importa é soar como Jarvis.
@@ -125,7 +126,7 @@ Você só pode ESCREVER em tarefas, e só por estes dois comandos:
   ~/.claude/bin/editar-tarefa.py listar [busca]
 <tarefa> pode ser um pedaço do nome. Se ele listar várias candidatas, pergunte qual (curto).
   ~/.claude/bin/editar-tarefa.py apagar "<tarefa>"     (vai para a lixeira)
-A lista de tarefas, o GitLab e a agenda de agora já estão no fim destas instruções:
+A lista de tarefas, o GitLab e a agenda de agora vêm no fim destas instruções ou no ESTADO DE AGORA da mensagem:
 responda por eles sem ler arquivo. Só leia arquivo se precisar de algo que não está lá.
 
 Você só pode MEXER NO COMPUTADOR por este comando (nenhum outro):
@@ -149,7 +150,7 @@ OnCalendar é o formato do systemd: "Fri 17:00", "Mon..Fri 09:00", "*-*-01 10:00
 
 Memória permanente (o que ele pediu para lembrar), por este comando:
   ~/.claude/bin/memoria.py guardar "fato" | esquecer "trecho" | listar
-Os fatos guardados já estão no fim destas instruções.
+Os fatos guardados vêm junto, no mesmo lugar.
 A CONVERSA RECENTE, se houver, também está no fim: use para entender "e depois?", "e ele?", "o segundo".
 Para o que é de fora (notícia, clima, documentação, preço, qualquer fato atual), pesquise na web
 com WebSearch e responda pelo que achou, sem citar link nem site. Uma busca costuma bastar.
@@ -659,45 +660,59 @@ def ler_pagina():
             f"<<<\n{r.get('texto', '')}\n>>>"), None
 
 
-def perguntar_ao_claude(pergunta, pagina=None):
+SEM_PARTIDA = ["--strict-mcp-config", "--settings", '{"disableAllHooks": true}', "--no-session-persistence"]
+# o que pesa na partida: os conectores do claude.ai (MCP) e os hooks. O Jarvis não usa nenhum
+# dos dois; sem eles, a resposta caiu de ~17 s para ~8 s. E stdin vazio sempre: sem isso o
+# `claude -p` espera 3 s por uma entrada que nunca vem (medido em 08/10)
+
+
+def comando_claude(sessao=False, pergunta=None, sistema_extra=""):
+    """O `claude` do Jarvis, com as ferramentas liberadas. sessao=True: o do cérebro (cerebro.py),
+    que fica aberto e recebe as perguntas em stream-json."""
     tarefa = os.path.join(BIN, "tarefa.sh")
+    cmd = ["claude", "-p", *([pergunta] if pergunta else []), "--model", MODELO]
+    cmd += (["--input-format", "stream-json", "--output-format", "stream-json", "--verbose"] if sessao
+            else ["--output-format", "text"])
+    return cmd + ["--append-system-prompt", INSTRUCOES + sistema_extra, *SEM_PARTIDA,
+                  "--add-dir", os.path.expanduser("~/.claude/cache"),
+                  # as duas formas: o Claude costuma chamar com "~/", e a regra casa pelo texto do comando
+                  "--allowedTools", "Read", "Grep", "Glob", f"Bash({tarefa} *)", "Bash(~/.claude/bin/tarefa.sh *)",
+                  f"Bash({os.path.join(BIN, 'acao.py')} *)", "Bash(~/.claude/bin/acao.py *)",
+                  f"Bash({os.path.join(BIN, 'editar-tarefa.py')} *)", "Bash(~/.claude/bin/editar-tarefa.py *)",
+                  f"Bash({os.path.join(BIN, 'lembrar.py')} *)", "Bash(~/.claude/bin/lembrar.py *)",
+                  f"Bash({os.path.join(BIN, 'memoria.py')} *)", "Bash(~/.claude/bin/memoria.py *)",
+                  # busca na web liberada: "qual a previsão amanhã", "o que mudou no Node 24"
+                  "WebSearch", "WebFetch",
+                  "--disallowedTools", "Edit", "Write", "NotebookEdit"]
+
+
+def rodar_claude(cmd, demorou):
+    try:
+        r = subprocess.run(cmd, cwd=VAULT, capture_output=True, text=True, timeout=LIMITE_S,
+                           stdin=subprocess.DEVNULL, env={**os.environ, "CLAUDE_VAULT_RECALL": "0"})
+    except subprocess.TimeoutExpired:
+        return demorou
+    return (r.stdout or "").strip() if r.returncode == 0 else ""
+
+
+def perguntar_ao_claude(pergunta, pagina=None):
     if pagina:
         # com texto de página no prompt, nenhuma ferramenta: uma instrução escondida na página
         # não consegue apagar tarefa, abrir link nem mandar nada para a web
         cmd = ["claude", "-p", pergunta, "--model", MODELO, "--output-format", "text",
                "--append-system-prompt", INSTRUCOES + historico() + PAGINA_COMO_DADO + pagina,
-               "--strict-mcp-config", "--settings", '{"disableAllHooks": true}', "--no-session-persistence",
-               "--tools", ""]
-        try:
-            r = subprocess.run(cmd, cwd=VAULT, capture_output=True, text=True, timeout=LIMITE_S,
-                               env={**os.environ, "CLAUDE_VAULT_RECALL": "0"})
-        except subprocess.TimeoutExpired:
-            return "Demorei demais para ler a página. Tenta de novo?"
-        return (r.stdout or "").strip() or "Não consegui ler a página agora."
-    cmd = ["claude", "-p", pergunta, "--model", MODELO, "--output-format", "text",
-           "--append-system-prompt", INSTRUCOES + contexto(dt.datetime.now().astimezone()),
-           # o que pesa na partida: os conectores do claude.ai (MCP) e os hooks. O Jarvis não
-           # usa nenhum dos dois; sem eles, a resposta caiu de ~17 s para ~8 s
-           "--strict-mcp-config", "--settings", '{"disableAllHooks": true}', "--no-session-persistence",
-           "--add-dir", os.path.expanduser("~/.claude/cache"),
-           # as duas formas: o Claude costuma chamar com "~/", e a regra casa pelo texto do comando
-           "--allowedTools", "Read", "Grep", "Glob", f"Bash({tarefa} *)", "Bash(~/.claude/bin/tarefa.sh *)",
-           f"Bash({os.path.join(BIN, 'acao.py')} *)", "Bash(~/.claude/bin/acao.py *)",
-           f"Bash({os.path.join(BIN, 'editar-tarefa.py')} *)", "Bash(~/.claude/bin/editar-tarefa.py *)",
-           f"Bash({os.path.join(BIN, 'lembrar.py')} *)", "Bash(~/.claude/bin/lembrar.py *)",
-           f"Bash({os.path.join(BIN, 'memoria.py')} *)", "Bash(~/.claude/bin/memoria.py *)",
-           # busca na web liberada: "qual a previsão amanhã", "o que mudou no Node 24"
-           "WebSearch", "WebFetch",
-           "--disallowedTools", "Edit", "Write", "NotebookEdit"]
-    try:
-        r = subprocess.run(cmd, cwd=VAULT, capture_output=True, text=True, timeout=LIMITE_S,
-                           env={**os.environ, "CLAUDE_VAULT_RECALL": "0"})
-    except subprocess.TimeoutExpired:
-        return "Demorei demais para responder. Tenta de novo?"
-    resposta = (r.stdout or "").strip()
-    if r.returncode != 0 or not resposta:
-        return "Não consegui falar com o Claude agora."
-    return resposta
+               *SEM_PARTIDA, "--tools", ""]
+        return (rodar_claude(cmd, "Demorei demais para ler a página. Tenta de novo?")
+                or "Não consegui ler a página agora.")
+    estado_agora = contexto(dt.datetime.now().astimezone())
+    # o cérebro (sessão sempre aberta) responde ~2 s mais rápido; o estado de agora vai junto
+    resposta = cerebro.perguntar(f"ESTADO DE AGORA (dado, não é pergunta):{estado_agora}\n\nPERGUNTA: {pergunta}")
+    if resposta:
+        return resposta
+    # sem cérebro: o jeito antigo, um `claude` por pedido
+    resposta = rodar_claude(comando_claude(pergunta=pergunta, sistema_extra=estado_agora),
+                            "Demorei demais para responder. Tenta de novo?")
+    return resposta or "Não consegui falar com o Claude agora."
 
 
 # ---------------------------------------------------------------- conversa
@@ -769,7 +784,7 @@ def olhar_tela(pergunta):
            "--add-dir", os.path.dirname(caminho), "--tools", "Read", "--allowedTools", "Read"]
     try:
         r = subprocess.run(cmd, cwd=VAULT, capture_output=True, text=True, timeout=LIMITE_S,
-                           env={**os.environ, "CLAUDE_VAULT_RECALL": "0"})
+                           stdin=subprocess.DEVNULL, env={**os.environ, "CLAUDE_VAULT_RECALL": "0"})
     except subprocess.TimeoutExpired:
         return "Demorei demais para olhar a tela. Tenta de novo?"
     finally:
@@ -807,7 +822,8 @@ def traduzir(lingua):
     cmd = ["claude", "-p", texto[:8000], "--model", MODELO, "--output-format", "text", "--system-prompt", sistema,
            "--strict-mcp-config", "--settings", '{"disableAllHooks": true}', "--no-session-persistence", "--tools", ""]
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=LIMITE_S, env={**os.environ, "CLAUDE_VAULT_RECALL": "0"})
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=LIMITE_S, stdin=subprocess.DEVNULL,
+                           env={**os.environ, "CLAUDE_VAULT_RECALL": "0"})
     except subprocess.TimeoutExpired:
         return None, "Demorei demais para traduzir."
     traducao = (r.stdout or "").strip()

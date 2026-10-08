@@ -147,6 +147,8 @@ servicos() {
   # o microfone sem eco antes da escuta: ela escolhe o microfone quando sobe
   systemctl --user enable --now jarvis-aec.service
   systemctl --user enable --now jarvis-escuta.service
+  # sessão do Claude sempre aberta: ~2 s a menos por pergunta
+  systemctl --user enable --now jarvis-cerebro.service
 }
 
 trabalho() {

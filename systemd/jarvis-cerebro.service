@@ -1,0 +1,12 @@
+[Unit]
+Description=Jarvis — cérebro: uma sessão do Claude sempre aberta (cerebro.py)
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.claude/bin/cerebro.py
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
