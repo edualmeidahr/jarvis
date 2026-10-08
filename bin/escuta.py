@@ -71,6 +71,9 @@ JV = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "jarvis")
 FALANDO = os.path.join(JV, "falando.pid")       # o falar.py escreve o pid do pw-play enquanto fala
 INTERROMPIDO = os.path.join(JV, "interrompido")  # o processo do jarvis.py que for interrompido se cala
 CONTINUAR = os.path.join(JV, "continuar")        # o jarvis.py respondeu falando: vale ouvir a continuação
+CHAMADA = os.path.join(JV, "chamada")            # modo chamada ("Ei Jarvis, liga"): ouve sem o nome até "tchau"
+CHAMADA_SILENCIO_S = 10.0    # na chamada, esse tempo sem você falar desliga
+NIVEL_CHAMADA = 0.3          # música durante a chamada (escala do wpctl: ~-31 dB), baixa sem sumir
 
 _spec_e = importlib.util.spec_from_file_location("estado", os.path.join(BIN, "estado.py"))
 estado = importlib.util.module_from_spec(_spec_e)
@@ -193,6 +196,8 @@ class Escuta:
         self.continuacoes = 0              # quantas emendadas sem "Ei Jarvis"
         self.sem_eco = False
         self.voz_seguida = 0               # blocos seguidos com voz enquanto o Jarvis fala
+        self.na_chamada = False            # modo chamada: a escuta emenda um turno no outro
+        self.duck_chamada = None           # a música fica baixa a chamada inteira
 
     def _zerar(self):
         # o buffer interno dos detectores ainda tem o "Jarvis" de agora há pouco
@@ -236,10 +241,11 @@ class Escuta:
                 self.limpo, self.sem_eco, self.bloco_limpo = None, False, None
         return bloco
 
-    def ouvir_pedido(self, mic, espera_s=ESPERA_FALA_S):
-        """Grava do microfone até você parar de falar. Devolve as amostras, ou None se não falou."""
+    def ouvir_pedido(self, mic, espera_s=ESPERA_FALA_S, continuacao=False):
+        """Grava do microfone até você parar de falar. Devolve as amostras, ou None se não falou.
+        continuacao: sem "Ei Jarvis" antes (continuação ou chamada), então não há nome para pular."""
         blocos, falou, silencio, inicio = [], False, 0.0, time.time()
-        nome_acabou = espera_s == CONTINUACAO_S  # na continuação não houve nome
+        nome_acabou = continuacao
         fala_s = 0.0
         calado = 0
         self.pico, self.vad_max = 0, 0.0  # diagnóstico do "ninguém falou"
@@ -285,7 +291,7 @@ class Escuta:
                 gravar_wav(np.concatenate(blocos[-int(espera_s / passo):]), os.path.join(EST, "ninguem.wav"))
                 return None
             if falou and (silencio >= SILENCIO_FIM_S or (completa and silencio >= SILENCIO_COMPLETA_S)):
-                if espera_s == CONTINUACAO_S and fala_s < FALA_MINIMA_CONTINUACAO_S:
+                if continuacao and fala_s < FALA_MINIMA_CONTINUACAO_S:
                     return None  # na continuação, um "hum" ou um ruído curto não vira pedido
                 self.fim_fala = time.time() - silencio
                 if especula is not None:
@@ -385,33 +391,84 @@ class Escuta:
             self.ativos += 1
         threading.Thread(target=rodar, daemon=True).start()
 
-    def acordar(self, mic, tentativa=1, continuacao=False):
-        if continuacao:
+    def acordar(self, mic, tentativa=1, continuacao=False, chamada=False):
+        """Ouve um pedido e entrega. False: ninguém falou."""
+        if chamada:
+            bolha("--nova", "Em chamada…", "Diga “tchau” para desligar.")
+        elif continuacao:
             bolha("--nova", "Pode continuar…", "Ou diga “obrigado”.")
         elif tentativa == 1:
             bolha("--nova", "--som", "ouvindo", "Estou ouvindo…", "Pode falar.")
         else:
             bolha("--som", "ouvindo", "Pode falar…", "Estou te ouvindo.")
-        estado.marcar("ouvindo", "continuação" if continuacao else "")
-        with acao.abaixar_musica(0.15):  # com a música alta, o VAD nunca ouve o silêncio do fim
-            amostras = self.ouvir_pedido(mic, CONTINUACAO_S if continuacao else ESPERA_FALA_S)
+        estado.marcar("ouvindo", "chamada" if chamada else "continuação" if continuacao else "")
+        if chamada:  # a música já está baixa pela chamada inteira
+            amostras = self.ouvir_pedido(mic, CHAMADA_SILENCIO_S, continuacao=True)
+        else:
+            with acao.abaixar_musica(0.15):  # com a música alta, o VAD nunca ouve o silêncio do fim
+                amostras = self.ouvir_pedido(mic, CONTINUACAO_S if continuacao else ESPERA_FALA_S, continuacao)
         estado.marcar("pensando" if amostras is not None else "parado")
+        if amostras is None and chamada:
+            return False
         if amostras is None and continuacao:
             log("continuação: ninguém falou, conversa encerrada")
             self.surdo_ate = time.time() + FOLGA_S
-            return
+            return False
         if amostras is None:
             vol = subprocess.run(["wpctl", "get-volume", "@DEFAULT_AUDIO_SOURCE@"], capture_output=True, text=True).stdout.strip()
             log(f"acordei, mas ninguém falou (pico {self.pico}/32767, VAD máx {self.vad_max:.2f}, microfone {vol})")
             bolha("--fim", "Não ouvi nada.", "Pode chamar de novo quando quiser.")
             self.surdo_ate = time.time() + FOLGA_S
-            return
-        log(f"pedido gravado: {len(amostras) / TAXA:.1f} s" + (" (continuação)" if continuacao else ""))
-        self.entregar(amostras, tentativa, continuacao, self.texto_pedido)
+            return False
+        log(f"pedido gravado: {len(amostras) / TAXA:.1f} s" +
+            (" (chamada)" if chamada else " (continuação)" if continuacao else ""))
+        self.entregar(amostras, tentativa, continuacao or chamada, self.texto_pedido)
+        return True
+
+    def turno_da_chamada(self, mic):
+        """Um turno do modo chamada, se ela está ligada. False: não há chamada (segue o normal)."""
+        if not os.path.exists(CHAMADA):
+            if self.na_chamada:
+                self.sair_da_chamada("você desligou")
+            return False
+        if not self.na_chamada:
+            self.na_chamada = True
+            self.duck_chamada = acao.abaixar_musica(NIVEL_CHAMADA).__enter__()
+            bolha("--som", "chamada", "Em chamada", "Diga “tchau” para desligar.")
+            log("chamada ligada")
+        elif acao.microfone_em_uso():
+            self.sair_da_chamada("outro app abriu o microfone (reunião?)")
+            return True
+        elif self.duck_chamada.entrou:
+            self.duck_chamada.reaplicar()  # player que trocou de stream; e o arquivo não envelhece
+        else:  # a música começou durante a chamada ("toca X"): agora ela baixa também
+            self.duck_chamada = acao.abaixar_musica(NIVEL_CHAMADA).__enter__()
+        self.continuar, self.de_novo, self.continuacoes = False, 0, 0
+        if not self.acordar(mic, chamada=True):
+            self.sair_da_chamada(f"{CHAMADA_SILENCIO_S:.0f} s sem você falar")
+        self._zerar()
+        return True
+
+    def sair_da_chamada(self, motivo):
+        try:
+            os.remove(CHAMADA)
+        except OSError:
+            pass
+        if self.duck_chamada:
+            self.duck_chamada.__exit__(None, None, None)
+        self.na_chamada, self.duck_chamada = False, None
+        bolha("--fim", "--som", "desligou", "Chamada encerrada.", "")
+        estado.marcar("parado")
+        self.surdo_ate = time.time() + FOLGA_S
+        log(f"chamada encerrada: {motivo}")
 
     def rodar(self):
         mic = self.microfone()
         acao.abaixar_musica.recuperar()  # se o serviço caiu com a música abaixada, devolve
+        try:
+            os.remove(CHAMADA)  # chamada de antes de o serviço cair: começa fora dela
+        except OSError:
+            pass
         log("ouvindo \"Ei Jarvis\"")
         estado.marcar("parado")
         try:
@@ -447,9 +504,12 @@ class Escuta:
                         pass
                     self.continuar, self.de_novo = False, 0
                     log(f"interrompido (nota {nota:.2f})")
-                    self.acordar(mic)
+                    self.acordar(mic, chamada=self.na_chamada)
                     self._zerar()
                     continue
+                if not self.ocupado() and (self.na_chamada or os.path.exists(CHAMADA)):
+                    if self.turno_da_chamada(mic):
+                        continue
                 if self.continuar and not self.ocupado():
                     self.continuar = False
                     e = acao.tocando()

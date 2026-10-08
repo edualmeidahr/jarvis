@@ -36,8 +36,10 @@ DADOS = os.path.expanduser("~/.local/share/jarvis")
 ICONE = os.path.join(DADOS, "jarvis.svg")
 VALIDADE_S = 120  # bolha mais velha que isso é de outra conversa: começa uma nova
 
-# dois toques curtos e baixos, subindo para "ouvindo" e descendo para "entendi"
-SONS = {"ouvindo": (660, 990), "entendi": (990, 660)}
+# toques curtos e baixos: subindo para "ouvindo", descendo para "entendi"; três para a chamada
+# (entrou: sobe; desligou: desce)
+SONS = {"ouvindo": (660, 990), "entendi": (990, 660),
+        "chamada": (660, 880, 1320), "desligou": (1320, 880, 660)}
 VOLUME = 0.35  # 0.18 passava despercebido: ele acordava e você não notava
 
 SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
@@ -59,7 +61,7 @@ def _preparar():
     if not os.path.exists(ICONE):
         with open(ICONE, "w") as f:
             f.write(SVG)
-    for nome, (a, b) in SONS.items():
+    for nome, notas in SONS.items():
         caminho = os.path.join(DADOS, f"{nome}.wav")
         if os.path.exists(caminho):
             continue
@@ -67,7 +69,7 @@ def _preparar():
         # silêncio na frente: a placa de som fica suspensa depois de 5 s parada (PipeWire) e,
         # ao acordar, engole o começo do áudio. Sem isso, o toque inteiro sumia
         amostras = [0.0] * int(taxa * 0.35)
-        for freq in (a, b):
+        for freq in notas:
             n = int(taxa * nota)
             for i in range(n):
                 env = math.sin(math.pi * i / n) ** 2  # sobe e desce suave: sem estalo

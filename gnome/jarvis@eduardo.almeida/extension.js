@@ -4,7 +4,7 @@
 // (estado.py). Esta extensão só LÊ: não tem lógica do Jarvis aqui dentro, de propósito.
 // Quanto menos ela faz, menos quebra quando o GNOME atualiza.
 //
-// Cores: cinza parado · azul ouvindo · âmbar pensando · verde falando.
+// Cores: cinza parado · azul ouvindo · âmbar pensando · verde falando. Anel roxo: modo chamada.
 // Só o contorno: a escuta do "Ei Jarvis" está desligada (o Insert continua valendo).
 
 import GLib from 'gi://GLib';
@@ -21,6 +21,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 const HOME = GLib.get_home_dir();
 const BIN = `${HOME}/.claude/bin`;
 const ESTADO = `${GLib.get_user_runtime_dir()}/jarvis/estado.json`;
+const CHAMADA = `${GLib.get_user_runtime_dir()}/jarvis/chamada`;  // modo chamada ligado: anel roxo
 const AGENDA = `${HOME}/.claude/cache/agenda.json`;
 // os botões do menu vêm deste arquivo, lido a cada vez que o menu abre: botão novo não exige
 // sair e entrar na sessão (só mudança neste extension.js exige)
@@ -121,18 +122,19 @@ class Indicador extends PanelMenu.Button {
             } catch (e) {
                 // sem arquivo ainda: parado
             }
-            this._aplicar(estado, detalhe);
+            this._aplicar(estado, detalhe, GLib.file_test(CHAMADA, GLib.FileTest.EXISTS));
         });
     }
 
-    _aplicar(estado, detalhe) {
+    _aplicar(estado, detalhe, chamada = false) {
         this._detalhe = detalhe;
-        if (estado === this._estado && this._classeAplicada)
+        if (estado === this._estado && chamada === this._chamada && this._classeAplicada)
             return;
         this._estado = estado;
+        this._chamada = chamada;
         this._classeAplicada = true;
         const classe = estado === 'parado' && !this._escutaLigada ? 'jarvis-desligado' : `jarvis-${estado}`;
-        this._ponto.style_class = `jarvis-ponto ${classe}`;
+        this._ponto.style_class = `jarvis-ponto ${classe}${chamada ? ' jarvis-em-chamada' : ''}`;
         this._pulsar(estado === 'ouvindo' || estado === 'falando');
         this._atualizarTextoEstado();
     }
@@ -169,7 +171,7 @@ class Indicador extends PanelMenu.Button {
             if (ligada !== this._escutaLigada) {
                 this._escutaLigada = ligada;
                 this._classeAplicada = false;
-                this._aplicar(this._estado, this._detalhe);
+                this._aplicar(this._estado, this._detalhe, this._chamada);
             }
             this._chave.setToggleState(ligada);
         });

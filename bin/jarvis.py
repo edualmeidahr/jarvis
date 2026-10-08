@@ -58,6 +58,7 @@ lembrar = _modulo("lembrar")
 JV = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "jarvis")
 CONVERSA = os.path.join(JV, "conversa.json")     # as últimas trocas, para "e depois dela?"
 CONTINUAR = os.path.join(JV, "continuar")        # respondi falando: a escuta ouve mais um pouco
+CHAMADA = os.path.join(JV, "chamada")            # modo chamada ligado: a escuta ouve sem "Ei Jarvis"
 INTERROMPIDO = os.path.join(JV, "interrompido")  # "Ei Jarvis" no meio da fala: este processo se cala
 CONVERSA_S = 300  # trocas mais velhas que 5 minutos não entram no prompt
 INICIO = time.time()
@@ -207,10 +208,18 @@ def normalizar(texto):
 
 def tirar_ativacao(norm):
     """(chamou_o_jarvis, resto). Aceita 'jarves', 'jarbas', 'járvis'..."""
+    def e_o_nome(p):
+        return p in GRAFIAS_DO_WHISPER or difflib.SequenceMatcher(None, p, PALAVRA_DE_ATIVACAO).ratio() >= 0.75
+
     palavras = norm.split()
-    if palavras and (palavras[0] in GRAFIAS_DO_WHISPER
-                     or difflib.SequenceMatcher(None, palavras[0], PALAVRA_DE_ATIVACAO).ratio() >= 0.75):
-        return True, " ".join(palavras[1:])
+    if palavras and e_o_nome(palavras[0]):
+        resto = palavras[1:]
+        # "Jarvis, Ei Jarvis, que horas são?": na chamada a escuta põe o nome, e você disse também
+        if len(resto) >= 2 and resto[0] in ("ei", "hey", "e", "oi") and e_o_nome(resto[1]):
+            resto = resto[2:]
+        elif resto and e_o_nome(resto[0]):
+            resto = resto[1:]
+        return True, " ".join(resto)
     return False, norm
 
 
@@ -483,8 +492,25 @@ def reconhecer_fonte(resto):
     return None
 
 
+# modo chamada: "Ei Jarvis, liga" ou "vamos conversar". Só a frase inteira: "liga o Spotify" é abrir
+LIGAR_CHAMADA = re.compile(r"^(liga|ligar|liga ai|liga a chamada|modo (chamada|conversa)|"
+                           r"(entra|entrar) (no|em) modo (chamada|conversa)|vamos conversar|bora conversar|"
+                           r"quero conversar|vamos bater (um )?papo|conversa comigo)( um pouco)?$")
+DESLIGAR_CHAMADA = re.compile(r"^(tchau|tchau tchau|ate mais|ate logo|ate depois|pode desligar|desliga|desligar|"
+                              r"desliga ai|encerra|encerrar|pode encerrar|encerra a (chamada|conversa)|"
+                              r"fim (da|de) (chamada|conversa)|sai do modo (chamada|conversa))( jarvis)?$")
+
+
+def em_chamada():
+    return os.path.exists(CHAMADA)
+
+
 def reconhecer_assistente(resto, chamou):
     """As regras novas, antes das ações: (tipo, valor) ou None."""
+    if chamou and LIGAR_CHAMADA.match(resto):
+        return "chamada", "ligar"
+    if em_chamada() and DESLIGAR_CHAMADA.match(resto):
+        return "chamada", "desligar"  # fora da chamada, "tchau" e "desliga" seguem o caminho de sempre
     if chamou and PARAR_DE_FALAR.match(resto) and time.time() - _mtime(INTERROMPIDO) < 20:
         return "encerrar", "calado"  # "Ei Jarvis, para" depois de cortar a fala: não é pausar a música
     if ENCERRAR.match(resto):
@@ -1014,11 +1040,13 @@ def _conversa():
         trocas = json.load(open(CONVERSA))
     except (OSError, ValueError):
         return []
-    return [t for t in trocas if time.time() - t["quando"] < CONVERSA_S]
+    # na chamada vale a conversa inteira, desde que ela começou
+    limite = max(CONVERSA_S, time.time() - _mtime(CHAMADA)) if em_chamada() else CONVERSA_S
+    return [t for t in trocas if time.time() - t["quando"] < limite]
 
 
 def registrar(pergunta, resposta):
-    trocas = (_conversa() + [{"quando": time.time(), "voce": pergunta, "jarvis": resposta}])[-6:]
+    trocas = (_conversa() + [{"quando": time.time(), "voce": pergunta, "jarvis": resposta}])[-(16 if em_chamada() else 6):]
     os.makedirs(JV, exist_ok=True)
     json.dump(trocas, open(CONVERSA, "w"), ensure_ascii=False)
 
@@ -1179,6 +1207,29 @@ def main():
         fala = fontes.futebol(arg or None) if nome == "futebol" else fontes.noticias(arg)
         notificar(texto, fala)
         falar.tocar(fala)
+        return 0
+
+    if tipo == "chamada":
+        if mostrar:
+            print(f"chamada ({valor})")
+            return 0
+        if valor == "desligar":
+            # a escuta vê a marca sumir, toca o som de fim e devolve a música
+            try:
+                os.remove(CHAMADA)
+            except OSError:
+                pass
+            falar.tocar(uma("Até mais.", f"Até logo, {TRATAMENTO}.", "Desligando."))
+            return 0
+        app = acao.microfone_em_uso()
+        if app:  # o Meet (ou outro app) com o microfone aberto: microfone aberto aqui pegaria a reunião
+            fala = "Você parece estar numa reunião. Deixo a chamada para depois."
+            bolha.mostrar(fala, f"O {app} está usando o microfone.")
+            falar.tocar(fala)
+            return 0
+        os.makedirs(JV, exist_ok=True)
+        open(CHAMADA, "w").close()
+        falar.tocar(uma("Pode falar.", "Estou ouvindo.", "Pode começar."))
         return 0
 
     if tipo == "encerrar":
@@ -1352,12 +1403,21 @@ def main():
     return responder_em_fluxo(texto, valor)
 
 
+MODO_CHAMADA = """MODO CHAMADA: vocês estão numa conversa por voz contínua, como numa ligação; ele fala
+sem dizer "Jarvis" a cada vez. Fale como gente conversando: uma ou duas frases curtas, tom natural e
+direto. Pode fazer uma pergunta de volta quando ajudar a conversa, mas não termine toda resposta
+oferecendo ajuda. Use "senhor" raramente. Ele encerra dizendo "tchau".
+
+"""
+
+
 def responder_em_fluxo(texto, valor):
     """A resposta do cérebro falada conforme ele escreve: a primeira frase toca enquanto ele
     escreve o resto. Antes a fala esperava a resposta inteira (1 a 2 s a mais)."""
     falar.etapa("jarvis.py vai perguntar ao Claude")
     inteiro = {}
-    pedido = lambda: f"ESTADO DE AGORA (dado, não é pergunta):{contexto(dt.datetime.now().astimezone())}\n\nPERGUNTA: {valor}"
+    jeito = MODO_CHAMADA if em_chamada() else ""
+    pedido = lambda: f"{jeito}ESTADO DE AGORA (dado, não é pergunta):{contexto(dt.datetime.now().astimezone())}\n\nPERGUNTA: {valor}"
     do_claude = frases_do_claude(pedido, lambda t: inteiro.update(texto=t),
                                  espera=uma("Um momento.", "Um instante.", "Deixa eu ver."))
 

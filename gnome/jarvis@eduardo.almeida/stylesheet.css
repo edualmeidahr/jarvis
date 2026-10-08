@@ -5,6 +5,8 @@
 .jarvis-pensando { background-color: #f2b33d; }
 .jarvis-falando  { background-color: #3ccf74; }
 /* escuta desligada: só o contorno, o Insert continua funcionando */
+/* modo chamada ("Ei Jarvis, liga"): o anel fica enquanto a chamada durar, por cima da cor do estado */
+.jarvis-em-chamada { border: 2px solid #b48cff; }
 .jarvis-desligado { background-color: transparent; border: 1.5px solid #9aa0a6; }
 .jarvis-titulo { font-weight: bold; }
 .jarvis-fraco  { color: #9aa0a6; }

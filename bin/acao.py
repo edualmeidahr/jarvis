@@ -742,6 +742,21 @@ def volume(quanto):
     return f"Volume em {v} por cento." if v is not None else "Pronto."
 
 
+def microfone_em_uso():
+    """O app que está gravando o microfone agora (o Chrome numa reunião do Meet), ou None.
+    O próprio Jarvis (pw-record, o filtro sem eco) não conta."""
+    try:
+        objetos = json.loads(subprocess.run(["pw-dump"], capture_output=True, text=True, timeout=5).stdout)
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return None
+    for o in objetos:
+        p = (o.get("info") or {}).get("props") or {}
+        app = p.get("application.name")
+        if p.get("media.class", "").startswith("Stream/Input") and app and app not in ("pw-record", "pw-cat"):
+            return app
+    return None
+
+
 class abaixar_musica:
     """Enquanto o Jarvis fala (ou ouve), a música baixa e volta depois — o "ducking" da Alexa.
 
@@ -822,9 +837,9 @@ class abaixar_musica:
                     if not m:
                         continue
                     estado["originais"][nome] = self._original(nome, m[1])
-                original = float(estado["originais"][nome])
-                subprocess.run(["wpctl", "set-volume", sid, f"{original * self.nivel:.2f}"], check=False)
             estado["ativos"] += 1
+            estado.setdefault("niveis", []).append(self.nivel)
+            self._aplicar(estado)
             return estado
 
         self._com_trava(mexer)
@@ -845,11 +860,20 @@ class abaixar_musica:
                     if not m:
                         continue
                     estado["originais"][nome] = self._original(nome, m[1])
-                subprocess.run(["wpctl", "set-volume", sid, f"{float(estado['originais'][nome]) * self.nivel:.2f}"],
-                               check=False)
+            self._aplicar(estado)
             return estado
 
         self._com_trava(mexer)
+
+    def _aplicar(self, estado):
+        """Volume = original × o MENOR nível de quem está abaixando agora. Antes cada um aplicava o
+        seu, e quem saía por último deixava o nível errado: na chamada (música baixa o tempo todo),
+        a fala do Jarvis subia a música para 45% e ela ficava lá enquanto ele ouvia."""
+        nivel = min(estado.get("niveis") or [self.nivel])
+        for sid, nome in self.streams_de_saida():
+            if nome in estado["originais"]:
+                subprocess.run(["wpctl", "set-volume", sid, f"{float(estado['originais'][nome]) * nivel:.2f}"],
+                               check=False)
 
     def __exit__(self, *_):
         if not self.entrou:
@@ -857,7 +881,12 @@ class abaixar_musica:
 
         def mexer(estado):
             estado["ativos"] -= 1
+            niveis = estado.get("niveis") or []
+            if self.nivel in niveis:
+                niveis.remove(self.nivel)
             if estado["ativos"] > 0:
+                if niveis:
+                    self._aplicar(estado)  # volta ao nível de quem continua abaixando
                 return estado  # outro processo ainda está falando: ele devolve
             self._restaurar(estado["originais"])
             return None

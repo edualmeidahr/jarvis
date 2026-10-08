@@ -276,3 +276,10 @@ Jarvis, Bolume 7.	acao volume 7
 Jarvis, Vazumi Nabi,	claude
 Jarvis, vou dormir.	claude
 Jarvis, Prássima.	acao midia proxima
+
+# --- Modo chamada (08/10): liga só com a frase inteira; "liga X" segue sendo abrir
+Jarvis, liga.	chamada ligar
+Jarvis, liga aí.	chamada ligar
+Jarvis, vamos conversar.	chamada ligar
+Jarvis, liga o Spotify.	acao abrir o spotify
+Jarvis, Ei Jarvis, qual a próxima reunião?	comando proxima
