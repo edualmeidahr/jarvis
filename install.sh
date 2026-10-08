@@ -87,6 +87,14 @@ python_venv() {
   "${pip[@]}" -q openwakeword --no-deps
   "${pip[@]}" -q onnxruntime numpy scipy tqdm requests scikit-learn "setuptools<81"
   "$DADOS/venv/bin/python" -c "from openwakeword.utils import download_models; download_models(['hey_jarvis'])" >/dev/null
+  # reconhecedor do "Ei Jarvis": Parakeet v3 pelo sherpa-onnx (0,4-1 s por pedido; o Whisper levava 3-4 s)
+  "${pip[@]}" -q sherpa-onnx
+  local stt="$DADOS/stt/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8"
+  if [ ! -f "$stt/encoder.int8.onnx" ]; then
+    mkdir -p "$DADOS/stt"
+    curl -fsSL "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2" \
+      | tar xj -C "$DADOS/stt"
+  fi
 }
 
 voz() {
@@ -152,6 +160,8 @@ servicos() {
   systemctl --user enable --now jarvis-escuta.service
   # sessão do Claude sempre aberta: ~2 s a menos por pergunta
   systemctl --user enable --now jarvis-cerebro.service
+  # voz já carregada (Piper aberto + timbre): ~0,6 s a menos por frase
+  systemctl --user enable --now jarvis-fala.service
 }
 
 trabalho() {

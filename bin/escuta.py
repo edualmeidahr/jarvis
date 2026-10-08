@@ -43,7 +43,9 @@ BLOCO = 1280                 # 80 ms: o passo do openWakeWord
 LIMIAR = 0.5                 # nota mínima para acordar; suba se acordar sozinho, desça se não te ouvir
 FOLGA_S = 2.0                # depois de acordar, ignora o detector por esse tempo
 VAD_FALA = 0.5               # acima disso, o bloco tem voz
-SILENCIO_FIM_S = 1.0         # silêncio depois da fala que encerra o pedido
+SILENCIO_FIM_S = 1.0         # silêncio depois da fala que encerra o pedido (no máximo)
+SILENCIO_ESPECULA_S = 0.3    # com este silêncio o Parakeet já transcreve, enquanto o fim não chega
+SILENCIO_COMPLETA_S = 0.6    # a frase parece completa: encerra com este silêncio, sem esperar o 1 s
 ESPERA_FALA_S = 6.0          # acordou e ninguém falou: desiste
 TENTATIVAS = 2               # falou só "Ei Jarvis" de novo (ou nada): ouve mais uma vez
 MAX_PEDIDO_S = 15.0
@@ -163,6 +165,20 @@ def ajustar_texto(texto):
     return re.sub(r"\bMr\.?(?=\s|$)", "MR", texto).strip()
 
 
+# fim que pede continuação: "toca a música de…", "abre o…", "e…"
+INCOMPLETA = re.compile(r"\b(e|ou|mas|de|da|do|das|dos|que|pra|para|com|o|a|os|as|um|uma|no|na|em|"
+                        r"tipo|é|porque|quando|se|sobre|qual|quanto|me|meu|minha)$")
+
+
+def parece_completa(texto):
+    """A frase transcrita até a pausa parece acabada? Palavra só ("toca…") e fim em vírgula,
+    artigo ou conjunção esperam o silêncio inteiro."""
+    t = texto.strip().lower()
+    if t.endswith((",", "-", "…")) or len(t.split()) < 2:
+        return False
+    return not INCOMPLETA.search(t.rstrip(" .!?"))
+
+
 class Escuta:
     def __init__(self, teste=False):
         self.teste = teste
@@ -227,6 +243,8 @@ class Escuta:
         fala_s = 0.0
         calado = 0
         self.pico, self.vad_max = 0, 0.0  # diagnóstico do "ninguém falou"
+        self.texto_pedido = None          # o que o Parakeet entendeu durante a pausa final
+        especula = None                   # {"n": blocos transcritos, "texto": resultado}
         passo = BLOCO / TAXA
         folga = int(0.6 / passo)  # guarda 0,6 s antes da fala: com 0,3 s o "T" de "tocar" sumia ("Lócar")
         while True:
@@ -255,16 +273,25 @@ class Escuta:
             if voz:
                 falou, silencio = True, 0.0
                 fala_s += passo
+                especula = None  # voltou a falar: a transcrição da pausa já não vale
             else:
                 silencio += passo
+            if falou and especula is None and silencio >= SILENCIO_ESPECULA_S and self.stt:
+                especula = self.especular(blocos)
+            completa = (especula is not None and especula.get("texto") is not None
+                        and parece_completa(especula["texto"]))
             decorrido = time.time() - inicio
             if not falou and decorrido > espera_s:
                 gravar_wav(np.concatenate(blocos[-int(espera_s / passo):]), os.path.join(EST, "ninguem.wav"))
                 return None
-            if falou and silencio >= SILENCIO_FIM_S:
+            if falou and (silencio >= SILENCIO_FIM_S or (completa and silencio >= SILENCIO_COMPLETA_S)):
                 if espera_s == CONTINUACAO_S and fala_s < FALA_MINIMA_CONTINUACAO_S:
                     return None  # na continuação, um "hum" ou um ruído curto não vira pedido
                 self.fim_fala = time.time() - silencio
+                if especula is not None:
+                    especula["fio"].join()  # no fim de 1 s ela pode estar acabando
+                    self.texto_pedido = especula.get("texto")
+                log(f"fim de turno com {silencio:.1f} s de silêncio" + (" (frase completa)" if silencio < SILENCIO_FIM_S else ""))
                 break
             if decorrido > MAX_PEDIDO_S:
                 self.fim_fala = time.time()
@@ -284,6 +311,21 @@ class Escuta:
         log(f"parakeet ({time.time() - t:.2f} s): {texto}")
         return texto
 
+    def especular(self, blocos):
+        """Transcreve o que já foi dito numa thread, durante a pausa: quando o fim de turno chega,
+        o texto está pronto (o Parakeet leva ~0,5 s, a pausa já ia esperar isso de qualquer jeito)."""
+        e = {"texto": None}
+        amostras = np.concatenate(blocos)
+
+        def rodar():
+            try:
+                e["texto"] = self.transcrever(amostras)
+            except Exception as erro:
+                log(f"transcrição na pausa falhou: {erro}")
+        e["fio"] = threading.Thread(target=rodar, daemon=True)
+        e["fio"].start()
+        return e
+
     def guardar_pedido(self, wav):
         """Cópia do áudio para comparar reconhecedores depois. Fica na RAM e só os últimos."""
         try:
@@ -294,7 +336,7 @@ class Escuta:
         except OSError:
             pass
 
-    def entregar(self, amostras, tentativa, continuacao=False):
+    def entregar(self, amostras, tentativa, continuacao=False, texto=None):
         """Roda o voz.sh em paralelo: o laço principal precisa continuar drenando o microfone."""
         wav = os.path.join(EST, f"acordado-{time.time_ns()}.wav")  # dois pedidos juntos não se pisam
         inicio = time.time()
@@ -305,8 +347,8 @@ class Escuta:
             try:
                 gravar_wav(amostras, wav)
                 self.guardar_pedido(wav)
-                texto = self.transcrever(amostras)
-                pronto = [] if texto is None else ["--texto", texto]
+                ja = texto if texto is not None else self.transcrever(amostras)
+                pronto = [] if ja is None else ["--texto", ja]
                 proc = subprocess.Popen([os.path.join(BIN, "voz.sh"), "--acordado", wav, *pronto],
                                         start_new_session=True, env=env)
                 try:
@@ -365,7 +407,7 @@ class Escuta:
             self.surdo_ate = time.time() + FOLGA_S
             return
         log(f"pedido gravado: {len(amostras) / TAXA:.1f} s" + (" (continuação)" if continuacao else ""))
-        self.entregar(amostras, tentativa, continuacao)
+        self.entregar(amostras, tentativa, continuacao, self.texto_pedido)
 
     def rodar(self):
         mic = self.microfone()

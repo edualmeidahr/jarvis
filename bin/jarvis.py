@@ -905,7 +905,7 @@ class MusicaDeFundo:
             self.fio.join(4)
 
 
-ESPERA_S = 1.2  # o Claude passou disso sem a primeira frase: "Um momento." (frases_do_claude)
+ESPERA_S = 2.0  # o Claude passou disso sem a primeira frase: "Um momento." (frases_do_claude)
 
 
 def frases_do_claude(pedido, guardar, espera=None):
@@ -914,16 +914,24 @@ def frases_do_claude(pedido, guardar, espera=None):
     guardar(texto inteiro) recebe a resposta no fim.
     espera: frase dita se a primeira do Claude passar de ESPERA_S ("Um momento."): silêncio longo
     parece que ele não ouviu; resposta rápida dispensa a frase."""
-    fila, buf = queue.Queue(), [""]
+    fila, buf, primeiro_pedaco, ja_saiu = queue.Queue(), [""], [], []
 
     def chegou(pedaco):
+        if not primeiro_pedaco:
+            primeiro_pedaco.append(True)
+            falar.etapa("1º pedaço do Claude")
         buf[0] += pedaco
         while True:
             # fim de frase, ou quebra de linha (o cérebro manda uma entre o texto de antes e o de
             # depois de uma ferramenta: "Vou ver." + "Sua reunião…" não viram uma frase só)
             m = re.search(r"([.!?…])\s+|\n\s*", buf[0])
+            if not m and not ja_saiu:
+                # a 1ª frase longa sai na 1ª vírgula depois de 25 letras: a voz começa enquanto ele
+                # ainda escreve o resto ("Um buraco negro é uma região do espaço, onde…")
+                m = re.compile(r"(,)\s+").search(buf[0], 25)
             if not m:
                 break
+            ja_saiu.append(True)
             frase = buf[0][:m.start() + (1 if m.group(1) else 0)].strip()
             if frase:
                 fila.put(frase)
@@ -1125,22 +1133,36 @@ def traduzir(lingua):
     return traducao, None
 
 
+SO_NOME = 20  # código de saída: a fala foi só o nome, e a escuta ouve de novo (voz.sh --acordado)
+
+
+def so_ativacao(texto):
+    """A fala foi só "Ei Jarvis", sem pedido?"""
+    resto = reconhecer_resto(texto)
+    # o whisper parte o nome ("eja vis", "ajares"): compara o trecho todo, sem espaço
+    junto = resto.replace(" ", "")
+    return so_nome(resto) or (len(junto) <= 10 and max(
+        difflib.SequenceMatcher(None, junto, alvo).ratio() for alvo in ("jarvis", "eijarvis", "heyjarvis")) >= 0.6)
+
+
 def main():
     args = sys.argv[1:]
     mostrar = "--mostrar" in args
-    texto = " ".join(a for a in args if a not in ("--mostrar", "--tipo", "--so-ativacao")).strip()
+    texto = " ".join(a for a in args if a not in ("--mostrar", "--tipo", "--so-ativacao", "--acordado")).strip()
     if not texto:
         return DITADO
 
     tipo, valor = reconhecer(texto)
     if "--so-ativacao" in sys.argv:  # escuta: a fala foi só "Ei Jarvis", sem pedido?
-        resto = reconhecer_resto(texto)
-        # o whisper parte o nome ("eja vis", "ajares"): compara o trecho todo, sem espaço
-        junto = resto.replace(" ", "")
-        so_nome_ = so_nome(resto) or (len(junto) <= 10 and max(
-            difflib.SequenceMatcher(None, junto, alvo).ratio() for alvo in ("jarvis", "eijarvis", "heyjarvis")) >= 0.6)
-        print("sim" if so_nome_ else "nao")
+        print("sim" if so_ativacao(texto) else "nao")
         return 0
+    if "--acordado" in sys.argv:
+        # o voz.sh depois do "Ei Jarvis": uma chamada só, em vez de --so-ativacao, --tipo e o pedido
+        # (cada uma carregava este arquivo inteiro: ~0,25 s a menos até a resposta)
+        if so_ativacao(texto):
+            return SO_NOME
+        if tipo != "ditado":
+            bolha.mostrar("Deixa comigo…", bolha.aspas(texto))
     if "--tipo" in sys.argv:  # o voz.sh pergunta antes, para avisar o que ouviu
         print(tipo)
         return DITADO if tipo == "ditado" else 0
@@ -1333,6 +1355,7 @@ def main():
 def responder_em_fluxo(texto, valor):
     """A resposta do cérebro falada conforme ele escreve: a primeira frase toca enquanto ele
     escreve o resto. Antes a fala esperava a resposta inteira (1 a 2 s a mais)."""
+    falar.etapa("jarvis.py vai perguntar ao Claude")
     inteiro = {}
     pedido = lambda: f"ESTADO DE AGORA (dado, não é pergunta):{contexto(dt.datetime.now().astimezone())}\n\nPERGUNTA: {valor}"
     do_claude = frases_do_claude(pedido, lambda t: inteiro.update(texto=t),

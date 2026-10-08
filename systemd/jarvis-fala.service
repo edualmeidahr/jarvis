@@ -1,0 +1,12 @@
+[Unit]
+Description=Jarvis — voz já carregada: Piper aberto e timbre (sintese.py)
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/share/jarvis/venv/bin/python %h/.claude/bin/sintese.py
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

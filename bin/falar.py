@@ -22,6 +22,7 @@ import os
 import queue
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -204,6 +205,24 @@ def _assinatura():
     return "|".join(partes)
 
 
+SOCKET_FALA = os.path.join(os.environ.get("XDG_RUNTIME_DIR", tempfile.gettempdir()), "jarvis", "fala.sock")
+
+
+def _pelo_servico(texto, saida, primeira):
+    """A frase pelo jarvis-fala (sintese.py: Piper já aberto, timbre lá dentro): ~0,6 s a menos
+    por frase. False sem o serviço: quem chamou faz do jeito antigo."""
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as c:
+            c.settimeout(30)
+            c.connect(SOCKET_FALA)
+            c.sendall(json.dumps({"texto": texto, "saida": saida, "primeira": primeira},
+                                 ensure_ascii=False).encode() + b"\n")
+            r = json.loads(c.makefile().readline() or "{}")
+        return bool(r.get("ok")) and os.path.exists(saida)
+    except (OSError, ValueError):
+        return False
+
+
 def _sintetizar(trecho, pasta, n, primeira):
     """O WAV pronto para tocar (com o timbre), ou None se o Piper falhou.
     Frase curta ("Boa noite, senhor.", "Um momento.") fica guardada: na próxima vez toca na hora,
@@ -215,6 +234,11 @@ def _sintetizar(trecho, pasta, n, primeira):
         if os.path.exists(guardado):
             return guardado
     cru, final = os.path.join(pasta, f"{n}-cru.wav"), os.path.join(pasta, f"{n}.wav")
+    if _pelo_servico(pronunciar(trecho), final, primeira):
+        if guardar:
+            os.makedirs(CACHE_FALAS, exist_ok=True)
+            shutil.copyfile(final, guardado)
+        return final
     com_timbre = os.path.exists(TIMBRE_PY) and os.access(VENV_PY, os.X_OK)
     escala = VELOCIDADE * TOM if com_timbre else VELOCIDADE
     piper = [PIPER, "--model", VOZ, "--sentence_silence", PAUSA, "--noise_w", RITMO, "--noise_scale", TIMBRE,
@@ -250,6 +274,18 @@ def _medir(frase):
     try:
         with open(LATENCIA, "a") as f:
             f.write(f"{dt.datetime.now():%F %T} {time.time() - float(fim):.2f} s  {frase[:50]}\n")
+    except (OSError, ValueError):
+        pass
+
+
+def etapa(nome):
+    """Uma etapa do pedido no latencia.log, contada do fim da sua fala: mostra onde o tempo vai."""
+    fim = os.environ.get("JARVIS_FIM_FALA")
+    if not fim:
+        return
+    try:
+        with open(LATENCIA, "a") as f:
+            f.write(f"    {nome}: {time.time() - float(fim):.2f} s\n")
     except (OSError, ValueError):
         pass
 

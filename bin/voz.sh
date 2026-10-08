@@ -112,10 +112,10 @@ aviso --som entendi "Um instante…"
 # os artistas que você ouve entram no vocabulário: nome de banda é onde o Whisper mais erra
 ARTISTAS=$(grep -v '^#' "$HOME/.config/jarvis/artistas.txt" 2>/dev/null | tail -40 | paste -sd, - | sed 's/,/, /g')
 [ -n "$ARTISTAS" ] && VOCABULARIO="$VOCABULARIO Artistas: $ARTISTAS."
-JANELA=()
-segundos=$(python3 -c 'import sys,wave; w=wave.open(sys.argv[1]); print(int(w.getnframes()/w.getframerate()))' "$WAV" 2>/dev/null || echo 99)
-[ "$segundos" -le 9 ] && JANELA=(-ac 512)
 if [ -z "$TEXTO_PRONTO" ]; then
+  JANELA=()
+  segundos=$(python3 -c 'import sys,wave; w=wave.open(sys.argv[1]); print(int(w.getnframes()/w.getframerate()))' "$WAV" 2>/dev/null || echo 99)
+  [ "$segundos" -le 9 ] && JANELA=(-ac 512)
   texto=$("$BIN" -m "$MODELO" -f "$WAV" -l "$IDIOMA" -t "$NUCLEOS" -nt -np "${JANELA[@]}" --prompt "$VOCABULARIO" 2>>"$LOG")
 fi
 
@@ -136,13 +136,15 @@ fi
 # Comando ("bom dia", "o que temos pra hoje") ou pergunta ("Jarvis, ...")? O Jarvis cuida.
 # Qualquer outra coisa é ditado, como sempre: vai para o clipboard.
 JARVIS="$HOME/.claude/bin/jarvis.py"
-# acordado pelo "Ei Jarvis": tudo o que vem depois é para ele
-if [ -n "$ACORDADO" ]; then
+# acordado pelo "Ei Jarvis": tudo o que vem depois é para ele, numa chamada só. Só repetiu o
+# nome (achou que eu não tinha ouvido): o jarvis.py sai com 20, e o escuta.py ouve de novo
+if [ -n "$ACORDADO" ] && [ -x "$JARVIS" ]; then
   texto="Jarvis, $texto"
-  # só repetiu o nome (achou que eu não tinha ouvido): sai com 20, e o escuta.py ouve de novo
-  [ "$(python3 "$JARVIS" --so-ativacao "$texto")" = "sim" ] && exit 20
-fi
-if [ -x "$JARVIS" ] && [ "$(python3 "$JARVIS" --tipo "$texto")" != "ditado" ]; then
+  python3 "$JARVIS" --acordado "$texto" >>"$LOG" 2>&1
+  r=$?
+  [ "$r" = 20 ] && exit 20
+  [ "$r" != 10 ] && exit 0  # 10: era ditado, segue para o clipboard
+elif [ -x "$JARVIS" ] && [ "$(python3 "$JARVIS" --tipo "$texto")" != "ditado" ]; then
   aviso "Deixa comigo…" "$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import bolha; print(bolha.aspas(sys.argv[2]))' "$HOME/.claude/bin" "$texto")"
   python3 "$JARVIS" "$texto" >>"$LOG" 2>&1
   exit 0
