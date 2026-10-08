@@ -99,7 +99,7 @@ musica = _modulo("musica")
 # A semelhança pega "jarves" e "jervis"; a lista pega o que fica abaixo do corte sem
 # abrir a porta para "jardim" (que baixar o corte deixaria passar).
 PALAVRA_DE_ATIVACAO = "jarvis"
-GRAFIAS_DO_WHISPER = {"jarbas", "jarvas", "djarvis", "jarviz", "jarvi", "charles jarvis"}
+GRAFIAS_DO_WHISPER = {"jarbas", "jarvas", "djarvis", "jarviz", "jarvi", "charles jarvis", "jares", "jairvis"}
 MODELO = "sonnet"  # rápido o bastante para voz; o opus demora mais do que uma conversa aguenta
 LIMITE_S = 90
 
@@ -178,8 +178,8 @@ COMANDOS = [
     (re.compile(r"^(o que (temos|tem|tenho|a gente tem) (pra|para|pro) hoje|como (esta|e|vai ser) (o )?meu dia|"
                 r"meu dia|agenda de hoje|o que tem hoje)$"), "hoje"),
     (re.compile(r"^((qual (e )?a )?proxima reunia[o]?|tem reunia[o]? agora|minha proxima reunia[o]?)$"), "proxima"),
-    (re.compile(r"^(a )?((atualiza|atualizar|atualize|roda|rodar|rode|puxa|puxar) (o |a |os )?"
-                r"(gitlab|git lab|painel|script da manha|manha|rotina da manha|dados do gitlab))$"), "atualizar"),
+    (re.compile(r"^(a )?((atualiza|atualizar|atualize|roda|rodar|rode|puxa|puxar)( de novo| novamente)? (o |a |os )?"
+                r"(gitlab|git lab|painel|script d[ae] manha|manha|rotina d[ae] manha|dados do gitlab))$"), "atualizar"),
 ]
 
 
@@ -191,18 +191,20 @@ ONDE_TOCAR = r"youtube music|youtube musica|you tube music|yt music|youtube|you 
 VERBO_TOCAR = r"(toca|toque|tocar|doca|coloca|coloque|colocar|bota|bote|poe|ponha|reproduz|reproduza|play)"
 ACOES = [
     # "entra no youtube e toca X": o pedido já diz que é YouTube, vale mesmo sem "Jarvis"
-    (re.compile(rf"^(entra|entre|entrar|vai|va|abre|abra|abrir) (no |o )?(?P<onde>{ONDE_TOCAR}) e {VERBO_TOCAR} (?P<arg>.+)$"), "tocar", True),
+    (re.compile(rf"^(entra|entre|entrar|vai|va|abre|abra|abrir|abri|abriu) (no |o )?(?P<onde>{ONDE_TOCAR}) e {VERBO_TOCAR} (?P<arg>.+)$"), "tocar", True),
     (re.compile(rf"^{VERBO_TOCAR} (?P<arg>.+ (no|na) ({ONDE_TOCAR}))$"), "tocar", True),
     # sem "YouTube" na frase, só com "Jarvis": "toca no assunto com ele" é ditado
     (re.compile(rf"^{VERBO_TOCAR} (?P<arg>.+)$"), "tocar", False),
-    (re.compile(r"^(abre|abra|abrir|abri|inicia|inicie|liga|ligue|executa|execute) (?P<arg>.+)$"), "abrir", True),
+    (re.compile(r"^(abre|abra|abrir|abri|abriu|inicia|inicie|liga|ligue|executa|execute) (?P<arg>.+)$"), "abrir", True),
     # mídia, no estilo Alexa: frase curta sozinha, age no que está tocando
     (re.compile(r"^(pausa|pause|pausar|pauser|pausair|pauza|para|pare|parar|stop)"
                 r"( (a |o )?(musica|video|som|youtube music|youtube|you tube)| ai)?$"), "midia", "pausar"),
     (re.compile(r"^(continua|continue|continuar|despausa|volta a tocar|solta o som|play|toca|retoma|retomar)"
                 r"( a musica| o video| tocando)?$"), "midia", "continuar"),
+    (re.compile(r"^tocar$"), "midia", "continuar"),
     (re.compile(r"^(a )?(proxima|proximo|proxima musica|proximo video|proxima faixa|pula|pular|pula essa|"
-                r"pula a musica|passa|passa essa|passa a musica|avanca|skip|next)$"), "midia", "proxima"),
+                r"pula a musica|passa|passa essa|passa a musica|avanca|skip|next)"
+                r"( (no |do )?(youtube music|youtube musica|youtube|you tube))?$"), "midia", "proxima"),
     (re.compile(r"^(a )?(anterior|volta|voltar|musica anterior|video anterior|volta a musica|volta uma)$"), "midia", "anterior"),
     (re.compile(r"^(do comeco|desde o comeco|reinicia|reinicia a musica|repete|repete essa|toca de novo)$"), "midia", "inicio"),
     (re.compile(r"^(o que (e que )?(esta|ta) tocando( agora)?|que musica e (essa|esta)( que (esta|ta) tocando)?|"
@@ -220,6 +222,9 @@ ACOES = [
     (re.compile(r"^(volume|som) (no |ao )?minimo$"), "volume", "minimo"),
     (re.compile(r"^(volume|som) (na |pela )?metade$"), "volume", "metade"),
     (re.compile(r"^(volume|vol|som) (em |no |pra |para )?(?P<arg>\d{1,3}|" + "|".join(NUMEROS) + r")( por cento)?$"), "volume", True),
+    (re.compile(r"^(aumenta|aumente|abaixa|abaixe|muda|mude|coloca|coloque|poe|ponha|deixa|deixe|bota|bote|sobe|suba|"
+                r"diminui|diminua)( o)?( volume| som)? (para|pra|em|no|ate) (o )?(volume |som )?(?P<arg>\d{1,3}|"
+                + "|".join(NUMEROS) + r")( por cento)?$"), "volume", True),
     (re.compile(r"^(muta|mutar|silencia|silenciar|tira o som|desmuta|volta o som|sem som)$"), "volume", "mudo"),
 ]
 
@@ -236,7 +241,13 @@ def reconhecer_acao(resto, chamou):
         if nome == "volume" and valor in NUMEROS:  # "volume cinco" → "5"
             valor = str(NUMEROS[valor])
         if nome == "tocar":
-            valor = re.sub(r"^(em|e|o|a|uma|um)\s+", "", valor)  # "toca em metallica", "toca é bruno"
+            # "toca em uma playlist", "toca é bruno", "toca alguma playlist": sem os artigos na frente
+            valor = re.sub(r"^((em|e|o|a|uma|um|alguma|algum)\s+)+", "", valor)
+            # "X, no YouTube, do Queen" e "Queen, YouTube": o serviço vai para o fim, com "no"
+            servico = re.search(r"\s(?:no |do |pelo )?(youtube music|youtube musica|youtube|you tube)(?=\s|$)", valor)
+            if servico and not m.groupdict().get("onde"):
+                valor = (valor[:servico.start()] + valor[servico.end():]).strip()
+                valor = f"{valor} no {servico[1]}"
         if m.groupdict().get("onde"):  # "entra no youtube music e toca X" → "X no youtube music"
             valor = f"{valor} no {m['onde']}"
         if nome == "abrir" and not acao.resolver(valor):
@@ -404,6 +415,27 @@ def _mtime(caminho):
         return 0
 
 
+def so_nome(resto):
+    """A fala foi só o nome? O whisper parte e troca letras: "eja vis", "ajares", "rage arvis"."""
+    junto = resto.replace(" ", "")
+    if not junto:
+        return True
+    return len(junto) <= 10 and max(difflib.SequenceMatcher(None, junto, alvo).ratio()
+                                    for alvo in ("jarvis", "eijarvis", "heyjarvis")) >= 0.58
+
+
+# o que se diz antes do pedido de verdade: "Não, tudo bem. Agora só aumente…", "Pode tocar…"
+ENCHIMENTO = re.compile(r"^(nao tudo bem|tudo bem|isso mesmo|entao|agora|so|pode|por favor|e para|eu quero|quero|"
+                        r"para(?= (toca|tocar|abre|abrir|abra|aumenta|aumentar|abaixa|abaixar|coloca|colocar|pausa|pausar)\b))\s+")
+
+
+def sem_enchimento(resto):
+    anterior = None
+    while resto != anterior:
+        anterior, resto = resto, ENCHIMENTO.sub("", resto)
+    return resto or anterior
+
+
 def reconhecer(texto):
     """('comando', nome) | ('acao', (nome, arg)) | ('claude', pergunta) | ('ditado', None)."""
     norm = normalizar(texto)
@@ -411,6 +443,8 @@ def reconhecer(texto):
     if chamou:  # "Jarvis, ei Jarvis, toca…": o escuta.py põe o nome, e às vezes a fala também traz
         resto = re.sub(r"^(ei|hey|hei|ai|e)\s+", "", resto)
         resto = tirar_ativacao(resto)[1]
+    if chamou:
+        resto = sem_enchimento(resto)
     if chamou and resto:
         # o whisper corta o "T" ("lócar", "socar", "doca"): com "Jarvis", soa como tocar = tocar
         primeira, _, depois = resto.partition(" ")
@@ -435,7 +469,9 @@ def reconhecer(texto):
         if RESUMO_SOZINHO.match(resto):
             return "claude", texto.strip()
         return "ditado", None
-    if not resto:
+    if not resto or so_nome(resto):
+        # "Jarvis, Ajares": a fala foi só o nome, escrito de outro jeito. Fica por último:
+        # "revisar" e "jardim" também parecem "Jarvis", e comando conhecido ganha antes
         return "comando", "oi"
     # a pergunta vai com o texto original (acento e maiúscula ajudam o Claude), sem o "Jarvis,"
     return "claude", texto.split(None, 1)[1].lstrip(" ,.:;")
@@ -796,9 +832,9 @@ def main():
         resto = reconhecer_resto(texto)
         # o whisper parte o nome ("eja vis", "ajares"): compara o trecho todo, sem espaço
         junto = resto.replace(" ", "")
-        so_nome = not resto or (len(junto) <= 10 and max(
+        so_nome_ = so_nome(resto) or (len(junto) <= 10 and max(
             difflib.SequenceMatcher(None, junto, alvo).ratio() for alvo in ("jarvis", "eijarvis", "heyjarvis")) >= 0.6)
-        print("sim" if so_nome else "nao")
+        print("sim" if so_nome_ else "nao")
         return 0
     if "--tipo" in sys.argv:  # o voz.sh pergunta antes, para avisar o que ouviu
         print(tipo)

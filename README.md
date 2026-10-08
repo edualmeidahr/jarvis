@@ -59,6 +59,10 @@ No fim, o `install.sh` lista o que precisa ser feito à mão: carregar a extens�
 | `Ctrl+Alt+M` | atualiza o painel do GitLab (também: `manha` no terminal) |
 | `Ctrl+Alt+N` | captura rápida de um pedido para o quadro |
 
+## Teste das frases
+
+`tests/rodar.py` confere se cada frase real (tirada do `voz.log`) vira o comando certo. Rode antes de mexer no reconhecimento, e acrescente em `tests/frases.tsv` cada frase nova que der errado. `tests/rodar.py --ver "frase"` mostra o que uma frase vira hoje.
+
 ## Onde olhar quando algo dá errado
 
 - `$XDG_RUNTIME_DIR/voz/voz.log`: o que o Whisper ouviu.

@@ -201,3 +201,13 @@ Jarvis, Toca é Brunimahoni.	acao tocar brunimahoni
 Jarvis, Abrir YouTube Music e tocar Highway to Hell.	acao tocar highway to hell no youtube music
 Jarvis, Próxima reuniã.	comando proxima
 Jarvis, aumenta o volume	acao volume mais
+
+# --- Casos-limite (08/10): comando conhecido ganha de "parece o nome"
+Jarvis, revisar	comando oi
+Jarvis, para de falar	encerrar
+Jarvis, para	acao midia pausar
+Jarvis, para tocar Queen	acao tocar queen
+Jarvis, Rengervis.	comando oi
+Jarvis, coloca o volume em 4	acao volume 4
+Jarvis, aumente para volume 7	acao volume 7
+Jarvis, toca Queen no YouTube	acao tocar queen no youtube
