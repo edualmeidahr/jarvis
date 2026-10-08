@@ -246,3 +246,12 @@ Jarvis, mostra a tela	acao abrir a tela
 Jarvis, abre o seu painel	acao abrir o seu painel
 Jarvis, o que tem na minha tela?	claude
 Jarvis, mostra as tarefas	claude
+
+# --- Resposta à oferta de música do bom dia (08/10)
+Jarvis, não	encerrar
+Jarvis, não, obrigado	encerrar
+Jarvis, Não precisa, muito obrigado.	encerrar
+Jarvis, agora não	encerrar
+Jarvis, sim	claude
+Jarvis, a primeira	claude
+Jarvis, toca Queen	acao tocar queen

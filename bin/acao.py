@@ -307,6 +307,40 @@ def corrigir_artista(busca):
     return busca
 
 
+HISTORICO = os.path.expanduser("~/.local/share/jarvis/historico-musicas.json")
+
+
+def registrar_musica(artista="", playlist="", titulo=""):
+    """O que tocou de fato (o que o YouTube Music devolveu, não o que o Whisper escreveu).
+    É de onde saem as sugestões do fim do bom dia."""
+    try:
+        h = json.load(open(HISTORICO))
+    except (OSError, ValueError):
+        h = []
+    h.append({"quando": time.strftime("%Y-%m-%d"), "artista": artista, "playlist": playlist, "titulo": titulo})
+    os.makedirs(os.path.dirname(HISTORICO), exist_ok=True)
+    json.dump(h[-500:], open(HISTORICO, "w"), ensure_ascii=False)
+
+
+def sugestoes(n=3, menos=()):
+    """Os artistas e playlists que ele mais pede, mais recentes valendo um pouco mais."""
+    try:
+        h = json.load(open(HISTORICO))
+    except (OSError, ValueError):
+        return []
+    pontos, nomes = {}, {}
+    for i, r in enumerate(h):
+        nome = r.get("playlist") and f"uma playlist de {r['playlist']}" or r.get("artista")
+        if not nome:
+            continue
+        chave = normalizar(r.get("playlist") or r.get("artista"))
+        if any(normalizar(m) in chave or chave in normalizar(m) for m in menos if m):
+            continue
+        pontos[chave] = pontos.get(chave, 0) + 1 + i / max(1, len(h))  # peso extra para o recente
+        nomes[chave] = nome
+    return [nomes[k] for k in sorted(pontos, key=pontos.get, reverse=True)[:n]]
+
+
 def tocar_music(busca):
     busca = corrigir_artista(busca)
     playlist = bool(CARA_DE_PLAYLIST.search(busca))
@@ -322,10 +356,13 @@ def tocar_music(busca):
     titulo, sub, vid, lista = achado
     if lista:
         abrir_musica(f"https://music.youtube.com/watch?list={lista}")
+        tema = re.sub(r"\b(musica|musicas|música|músicas)( de)?\b", "", termo, flags=re.I).strip() or termo
+        registrar_musica(playlist=tema, titulo=titulo)
         return f"Tocando a playlist {curto(titulo)}."
     abrir_musica(f"https://music.youtube.com/watch?v={vid}")
     artista = sub.split("•")[0].strip()
     aprender_artistas(artista)
+    registrar_musica(artista=artista.split(" e ")[0].split(",")[0].strip(), titulo=titulo)
     return f"Tocando {curto(titulo)}" + (f", de {artista}." if artista else ".")
 
 

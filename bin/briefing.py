@@ -154,6 +154,14 @@ def melhorias():
     return len(assuntos), assuntos[:5]
 
 
+def sugestoes():
+    acao = importlib.util.module_from_spec(spec := importlib.util.spec_from_file_location("acao", os.path.join(BIN, "acao.py")))
+    spec.loader.exec_module(acao)
+    trilha = config.get("JARVIS_MUSICA_BOM_DIA", "highway to hell")
+    artista = acao.trilha_mod.info().get("artista", "")  # nem a música da trilha, nem o artista dela
+    return acao.sugestoes(3, menos=(trilha, artista))
+
+
 def carregar(nome):
     try:
         return json.load(open(os.path.join(CACHE, nome)))
@@ -187,6 +195,7 @@ def dados():
         f"GITLAB: meus MRs: {'; '.join(mrs) or 'nenhum'}. Reviews para ele: {'; '.join(revs) or 'nenhum'}.",
         f"TAREFAS EM ABERTO: {'; '.join(abertas) or 'nenhuma'}",
         f"NOTÍCIAS: " + (" | ".join(f"[{x['tema']}] {x['titulo']}" for x in ns) or "indisponíveis"),
+        f"SUGESTÕES DE MÚSICA (o que ele mais pede): {'; '.join(sugestoes()) or 'nenhuma ainda'}",
         f"MELHORIAS NO PRÓPRIO SISTEMA DESDE ONTEM: {qtd}" + (f" (por exemplo: {'; '.join(assuntos[:3])})" if qtd else ""),
     ]
     cartoes = {"gerado_em": time.time(), "clima": c, "agenda_hoje": agenda(hoje), "noticias": ns,

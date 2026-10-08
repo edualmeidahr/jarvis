@@ -360,7 +360,9 @@ RESUMO_SOZINHO = re.compile(
 # ---------------------------------------------------------------- regras do assistente
 
 ENCERRAR = re.compile(r"^(obrigad[oa]|valeu|brigad[oa]|so isso|nada|nada nao|esquece|esqueca|deixa pra la|"
-                      r"cancela|cancelar|chega|silencio|quieto|para de falar|pode parar|tudo bem|beleza|ok)$")
+                      r"cancela|cancelar|chega|silencio|quieto|para de falar|pode parar|tudo bem|beleza|ok|"
+                      r"nao|nao obrigad[oa]|nao valeu|agora nao|nao precisa|nao precisa obrigad[oa]|"
+                      r"nao precisa muito obrigad[oa]|nao quero|nao quero nao|por enquanto nao)$")
 PARAR_DE_FALAR = re.compile(r"^(para|pare|parar|chega|stop|silencio|cala a boca)$")
 MEMORIZAR = re.compile(r"^(lembra|lembre|lembrar|guarda|guarde|memoriza|memorize|nao esquece|nao esqueca) "
                        r"(que|disso que|isso que) (?P<fato>.+)$")
@@ -796,8 +798,9 @@ A saudação ("{saudacao}") JÁ FOI DITA: comece direto por uma frase de efeito 
 - GitLab e tarefas: só o que pede ação dele hoje; se nada pede, diga isso numa frase;
 - as melhorias no seu próprio sistema desde ontem: o número, com um orgulho discreto, sem detalhe técnico;
 - as notícias, uma frase cada, sem citar o veículo;
-- termine com UMA oferta concreta e útil, em forma de pergunta (preparar algo para uma reunião, resumir as
-  threads de um MR, tocar uma playlist para começar...).
+- termine perguntando se ele quer ouvir alguma coisa, oferecendo as SUGESTÕES DE MÚSICA dos dados pelo nome
+  (por exemplo: "Quer ouvir alguma coisa? Posso tocar Queen, Bruno e Marrone ou uma playlist de eletrônica.").
+  Se ele responder "sim" ou "a primeira", toque a sugestão com o acao.py; se disser outra, toque a outra.
 No máximo umas 12 frases. Esta é a única resposta em que você pode passar de duas frases. Sem markdown, sem lista.
 NUNCA leia código de issue (MLH037732, BUG014871): diga só o assunto, curto. MR pelo número por extenso.
 
@@ -833,8 +836,9 @@ class MusicaDeFundo:
         if not ja_toca and trilha.arquivo():
             trilha.tocar(trilha.arquivo(), NIVEL_TRILHA)
             self.fim.wait()
-            if trilha.pid_ativo():
-                trilha.volume(1.0, fade_s=1.5)  # termina a fala, a música sobe e segue
+            if trilha.pid_ativo():  # a trilha é só do bom dia: termina a fala, ela some e para
+                trilha.volume(0.0, fade_s=2.0)
+                trilha.parar()
             return
         if not ja_toca:
             acao.tocar(MUSICA_BOM_DIA)
@@ -1096,7 +1100,7 @@ def main():
         if mostrar:
             print(f"encerrar ({valor})")
             return 0
-        if valor in ("obrigado", "obrigada", "valeu", "brigado", "brigada"):
+        if valor in ("obrigado", "obrigada", "valeu", "brigado", "brigada") or "obrigad" in valor:
             fala = uma("Às ordens.", f"Disponha, {TRATAMENTO}.", "Sempre que precisar.", "Por nada.")
             bolha.mostrar(fala, "")
             falar.tocar(fala)
