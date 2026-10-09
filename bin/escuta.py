@@ -64,7 +64,6 @@ MIC_SEM_ECO = "jarvis_mic_sem_eco"  # serviço jarvis-aec: o microfone com a sa�
 # 0,4 a 1 s por pedido, contra 3 a 4 s do Whisper small (que também errava mais: "Conta 7 vezes 8").
 # JARVIS_STT=whisper volta ao caminho antigo (o voz.sh transcreve). O Insert segue com o Whisper
 STT = os.environ.get("JARVIS_STT", "parakeet")
-MICROFONE_MINIMO = 0.8  # abaixo disto (escala do wpctl), foi o Chrome que baixou: volta para 100%
 PARAKEET = os.path.expanduser("~/.local/share/jarvis/stt/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8")
 PEDIDOS = os.path.join(EST, "pedidos")  # os últimos áudios de pedido (RAM): para comparar reconhecedores
 GUARDAR_PEDIDOS = 30
@@ -313,8 +312,7 @@ class Escuta:
                 self.fim_fala = time.time() - silencio
                 if especula is not None:
                     # o texto da pausa só decide se a frase acabou; o pedido é transcrito de novo,
-                    # inteiro (+0,15 s). Em 09/10 o VAD não ouviu o "Queen" depois da pausa (microfone
-                    # a 31%) e o pedido saiu com o texto da pausa: "Tô cara", "T.", "Bowser". O áudio
+                    # inteiro (+0,15 s). Em 09/10 o VAD não ouviu o "Queen" depois da pausa e o pedido saiu com o texto da pausa: "Tô cara", "T.", "Bowser". O áudio
                     # inteiro dava "Tocar Queen." e "Pausar música."
                     especula["fio"].join()
                 log(f"fim de turno com {silencio:.1f} s de silêncio" + (" (frase completa)" if silencio < SILENCIO_FIM_S else ""))
@@ -411,20 +409,8 @@ class Escuta:
             self.ativos += 1
         threading.Thread(target=rodar, daemon=True).start()
 
-    @staticmethod
-    def microfone_no_lugar():
-        """O Chrome (Meet, controle automático de ganho) baixa o microfone do sistema sozinho: em 09/10
-        estava em 31% (≈ -30 dB) e o VAD perdia o fim das frases. Ao acordar, volta para 100%."""
-        r = subprocess.run(["wpctl", "get-volume", "@DEFAULT_AUDIO_SOURCE@"], capture_output=True, text=True).stdout
-        m = re.search(r"([\d.]+)", r)
-        if m and float(m[1]) < MICROFONE_MINIMO:
-            subprocess.run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SOURCE@", "1.0"], check=False)
-            log(f"microfone estava em {float(m[1]):.2f}: voltei para 1.00")
-
     def acordar(self, mic, tentativa=1, continuacao=False, chamada=False):
         """Ouve um pedido e entrega. False: ninguém falou."""
-        if tentativa == 1 and not continuacao and not chamada:
-            self.microfone_no_lugar()
         if chamada:
             bolha("--nova", "Em chamada…", "Diga “tchau” para desligar.")
         elif continuacao:

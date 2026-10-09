@@ -502,6 +502,27 @@ def _trilha_tocando():
     return {"player": "trilha", "status": "Playing", "titulo": i["titulo"], "artista": i["artista"], "app": ""}
 
 
+SPOTIFY_API = "api:spotify"  # o spotifyd visto pela Web API, quando ele some do MPRIS
+
+
+def spotify_pela_api():
+    """O Spotify como um player, pela Web API, quando o spotifyd não está no MPRIS. Em 09/10 a
+    conexão dele caiu e voltou ("unexpected shutdown" no log) e o MPRIS não voltou junto: a música
+    seguia tocando, mas "pausa" dizia "não tem nada tocando" e o ducking não abaixava."""
+    if config.get("JARVIS_MUSICA").lower() != "spotify":
+        return None
+    try:
+        r = spotify.api("GET", "/me/player")
+    except spotify.SemSpotify:
+        return None
+    item = r.get("item") or {}
+    if (r.get("device") or {}).get("name") != spotify.DISPOSITIVO or not item:
+        return None
+    return {"player": SPOTIFY_API, "status": "Playing" if r.get("is_playing") else "Paused",
+            "titulo": item.get("name", ""), "artista": ", ".join(a["name"] for a in item.get("artists", [])[:2]),
+            "app": "Spotify"}
+
+
 def tocando():
     """O player que está em play; se nenhum, o pausado (é ele que "continua" quer); ou None.
 
@@ -516,8 +537,10 @@ def tocando():
         # a mesma sessão vista pelo MPRIS sai, para não aparecer duas vezes
         estados = [ytm] + [e for e in estados if e["titulo"] != ytm["titulo"]]
     if config.get("JARVIS_MUSICA").lower() == "spotify":
+        if not any(".spotifyd." in e["player"] for e in estados):
+            estados += [e for e in [spotify_pela_api()] if e]
         # o Spotify é a música da casa: com tudo pausado, "continua" é com ele
-        estados.sort(key=lambda e: ".spotifyd." not in e["player"])
+        estados.sort(key=lambda e: ".spotifyd." not in e["player"] and e["player"] != SPOTIFY_API)
     for status in ("Playing", "Paused"):
         for e in estados:
             if e["status"] == status:
@@ -575,6 +598,29 @@ def midia(o_que):
             return f"Já está tocando: {e['titulo']}."
         trilha_mod.parar()
         return "Parei a trilha."
+    if p == SPOTIFY_API:
+        if o_que == "pausar" and e["status"] != "Playing":
+            return f"Já está pausado: {descrever(e)}."
+        if o_que == "continuar" and e["status"] == "Playing":
+            return f"Já está tocando: {descrever(e)}."
+        try:
+            alvo = {"device_id": spotify.dispositivo()}
+            if o_que in ("proxima", "anterior"):
+                _pular_no_spotify(o_que)
+            elif o_que == "inicio":
+                spotify.api("PUT", "/me/player/seek", params={"position_ms": 0, **alvo})
+            else:
+                spotify.api("PUT", "/me/player/pause" if o_que == "pausar" else "/me/player/play", params=alvo)
+        except spotify.SemSpotify:
+            return "Não consegui falar com o Spotify agora."
+        if o_que in ("proxima", "anterior"):  # a faixa nova leva um instante para aparecer na API
+            for _ in range(20):
+                time.sleep(0.3)
+                novo = spotify_pela_api()
+                if novo and novo["titulo"] != e["titulo"]:
+                    e = novo
+                    break
+        return f"{frase}: {descrever(e)}." if descrever(e) else f"{frase}."
     if p == EXTENSAO:
         if o_que == "pausar" and e["status"] != "Playing":
             return f"Já está pausado: {descrever(e)}."
@@ -649,8 +695,13 @@ FIXOS_VOLUME = {"maximo": 100, "minimo": 10, "metade": 50}
 
 
 def _spotify_tocando():
-    """O player do Spotify (spotifyd) está em play? Pelo MPRIS, sem esperar a extensão."""
-    return any(".spotifyd." in p and _estado(p)["status"] == "Playing" for p in players())
+    """O player do Spotify (spotifyd) está em play? Pelo MPRIS, sem esperar a extensão; sumiu do
+    MPRIS, pela Web API."""
+    nomes = players()
+    if any(".spotifyd." in p for p in nomes):
+        return any(".spotifyd." in p and _estado(p)["status"] == "Playing" for p in nomes)
+    e = spotify_pela_api()
+    return bool(e and e["status"] == "Playing")
 
 
 # O spotifyd põe o volume do Spotify numa curva de 60 dB: 70% já é -18 dB e 50% é -30 dB, quase
