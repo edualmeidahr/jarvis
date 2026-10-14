@@ -69,7 +69,7 @@ Jarvis, Tocar, TNT, ACDC.	acao tocar tnt acdc
 Jarvis, Tocar Vintage Culture.	acao tocar vintage culture
 Jarvis, Vol. 3.	acao volume 3
 Jarvis, Toca.	acao midia continuar
-Jarvis, Entrar na chamada.	claude
+Jarvis, Entrar na chamada.	comando entrar
 Jarvis, Tocar Marcelo Carvalho, entercendo-me.	acao tocar marcelo carvalho entercendo me
 Jarvis, Pausar música.	acao midia pausar
 Jarvis, Abre-se o neão, review.	claude
@@ -289,3 +289,9 @@ Jarvis, encerrar o dia.	fechamento encerrar o dia
 Jarvis, fecha o dia.	fechamento fecha o dia
 Jarvis, acabei por hoje.	fechamento acabei por hoje
 Jarvis, encerra.	claude
+# --- Entrar na reunião (abre o Meet do cache da agenda) (14/10)
+Jarvis, Entrar na reunião.	comando entrar
+Jarvis, Entra na daily.	comando entrar
+Jarvis, abre a call.	comando entrar
+Jarvis, entrar na reunião de growth.	comando entrar
+Jarvis, Entrar no Meet.	comando entrar

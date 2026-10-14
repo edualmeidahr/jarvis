@@ -234,6 +234,9 @@ COMANDOS = [
     (re.compile(r"^(o que (temos|tem|tenho|a gente tem) (pra|para|pro) hoje|como (esta|e|vai ser) (o )?meu dia|"
                 r"meu dia|agenda de hoje|o que tem hoje)$"), "hoje"),
     (re.compile(r"^((qual (e )?a )?proxima reunia[o]?|tem reunia[o]? agora|minha proxima reunia[o]?)$"), "proxima"),
+    # "entrar na reunião", "entra na daily", "abre a call", "entrar na reunião de growth"
+    (re.compile(r"^(entra|entrar|entre|entro|abre|abrir|abra|acessa|acessar|me (coloca|bota|poe) )\s*(na |no |a |o |pra |para a )?"
+                r"(reuniao|reunia|call|chamada|meet|google meet|daily|deili|deily)( (da|de|do|das|dos|sobre) .+| agora)?$"), "entrar"),
     (re.compile(r"^(a )?((atualiza|atualizar|atualize|roda|rodar|rode|puxa|puxar)( de novo| novamente)? (o |a |os )?"
                 r"(gitlab|git lab|painel|script d[ae] manha|manha|rotina d[ae] manha|dados do gitlab))$"), "atualizar"),
 ]
@@ -698,6 +701,46 @@ def resposta_hoje(agora):
     if revs:
         fala.append(f"E {falar.contagem(revs, 'review esperando você', 'reviews esperando você')}.")
     return " ".join(fala), "\n".join(escrito) or " ".join(fala)
+
+
+def reuniao_para_entrar(texto, agora):
+    """A reunião que o "entrar na reunião" quer: a que tem o nome dito ("de growth", "daily"); senão
+    a que está acontecendo (ou começa em até 15 min); senão a próxima de hoje."""
+    evs = reunioes_de_hoje(agora)
+    t = normalizar(texto)
+    m = re.search(r"\b(?:da|de|do|das|dos|sobre) (.+)$", t)
+    nome = m[1] if m else ("daily" if re.search(r"\b(daily|deili|deily)\b", t) else "")
+    if nome:
+        com_nome = [e for e in evs if nome in normalizar(e["titulo"])
+                    or difflib.SequenceMatcher(None, nome, normalizar(e["titulo"])).ratio() >= 0.6]
+        evs = com_nome or []
+    ini = lambda e: dt.datetime.fromisoformat(e["inicio"])
+    fim = lambda e: dt.datetime.fromisoformat(e["fim"])
+    agora_ou_ja = [e for e in evs if ini(e) - dt.timedelta(minutes=15) <= agora < fim(e)]
+    depois = [e for e in evs if ini(e) > agora]
+    return (agora_ou_ja or depois or [None])[0], nome
+
+
+def entrar_na_reuniao(texto, agora):
+    """(falado, escrito). Abre o Meet da reunião e pausa a música."""
+    e, nome = reuniao_para_entrar(texto, agora)
+    if not e:
+        falta = f"reunião {nome}" if nome else "reunião"
+        return f"Não achei {falta} para entrar hoje.", f"Não achei {falta} para entrar hoje."
+    titulo = falar.titulo_falado(e["titulo"])
+    if not e.get("link"):
+        if e.get("agenda"):
+            acao.url(e["agenda"])
+        return (f"{titulo} não tem link de chamada. Abri ela na agenda.",
+                f"{e['titulo']}: sem link de chamada (abri na agenda)")
+    t = acao.tocando()
+    if t and t["status"] == "Playing":
+        acao.midia("pausar")
+    acao.url(e["link"])
+    ini = dt.datetime.fromisoformat(e["inicio"])
+    faltam = round((ini - agora).total_seconds() / 60)
+    quando = f" Ela começa às {ini:%H:%M}." if faltam > 15 else ""
+    return f"Entrando na {titulo}.{quando}", f"{ini:%H:%M} {e['titulo']}\n{e['link']}"
 
 
 def resposta_proxima(agora):
@@ -1447,6 +1490,12 @@ def main():
             fala, escrito = resposta_hoje(agora)
         elif valor == "proxima":
             fala, escrito = resposta_proxima(agora)
+        elif valor == "entrar":
+            if mostrar:
+                e, nome = reuniao_para_entrar(texto, agora)
+                print(f"comando entrar → {e['titulo'] + ' ' + e['link'] if e else 'nenhuma'} (nome: {nome or '-'})")
+                return 0
+            fala, escrito = entrar_na_reuniao(texto, agora)
         elif valor == "atualizar":
             if mostrar:
                 fala = falar_gitlab(carregar("~/.claude/cache/gitlab.json"))
