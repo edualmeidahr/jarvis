@@ -18,6 +18,7 @@ Como funciona:
 
 Nada sai da máquina: detector, VAD e Whisper rodam local.
 """
+import fcntl
 import importlib.util
 import os
 import re
@@ -25,6 +26,8 @@ import shutil
 import subprocess
 import sys
 import select
+import struct
+import termios
 import threading
 import time
 import wave
@@ -148,6 +151,22 @@ class Gravacao:
             self.proc = self._abrir()
         raise RuntimeError(f"o microfone {self.nome} parou 5 vezes seguidas")
 
+    def pendente(self):
+        """Quantos bytes já gravados esperam no cano para serem lidos."""
+        try:
+            return struct.unpack("i", fcntl.ioctl(self.proc.stdout.fileno(), termios.FIONREAD, b"\0" * 4))[0]
+        except OSError:
+            return 0
+
+    def descartar(self, n):
+        """Joga fora os n bytes mais velhos do cano (múltiplo de 2: amostra inteira)."""
+        n -= n % 2
+        while n > 0:
+            pedaco = os.read(self.proc.stdout.fileno(), min(n, 65536))
+            if not pedaco:
+                return
+            n -= len(pedaco)
+
     def fechar(self):
         self.proc.terminate()
 
@@ -256,7 +275,23 @@ class Escuta:
                 log("microfone sem eco falhou de vez: sigo só com o normal")
                 self.limpo.fechar()
                 self.limpo, self.sem_eco, self.bloco_limpo = None, False, None
+            else:
+                self.alinhar()
         return bloco
+
+    def alinhar(self):
+        """Os dois microfones vêm de relógios diferentes (o sem eco sai de outro processo do PipeWire)
+        e um produz um pouco mais que o outro. Lendo um bloco de cada, o excesso do mais rápido
+        acumulava no cano: em 14/10, depois de 5 h, o normal estava 1,4 s atrasado. O "Ei Jarvis" e a
+        gravação usavam áudio velho, e o VAD (no sem eco) decidia o fim pelo áudio de agora — o
+        pedido saía cortado ("Tudo", "Tocar."). Reiniciar zerava; por isso desligar e ligar ajudava.
+        Agora a diferença acima de 2 blocos (160 ms) é jogada fora do mais adiantado."""
+        b, l = self.bruto.pendente(), self.limpo.pendente()
+        if abs(b - l) > 2 * BLOCO * 2:
+            (self.bruto if b > l else self.limpo).descartar(abs(b - l))
+            self.descartes = getattr(self, "descartes", 0) + 1
+            if self.descartes in (1, 10, 100) or self.descartes % 1000 == 0:
+                log(f"microfones desalinhados ({(b - l) / (TAXA * 2):+.2f} s): alinhei ({self.descartes}ª vez)")
 
     def ouvir_pedido(self, mic, espera_s=ESPERA_FALA_S, continuacao=False, fala_minima_s=FALA_MINIMA_CONTINUACAO_S):
         """Grava do microfone até você parar de falar. Devolve as amostras, ou None se não falou.
