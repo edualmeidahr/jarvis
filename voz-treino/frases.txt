@@ -1,0 +1,495 @@
+# Frases para gerar o áudio de treino da voz (uma por linha; # comenta).
+# Genéricas de propósito: o texto vai para um serviço externo uma vez só. Nada da empresa.
+# Escritas como devem SOAR: número por extenso, sem sigla que se soletra.
+
+# --- assistente: saudações e confirmações
+Bom dia, senhor.
+Boa tarde, senhor.
+Boa noite, senhor.
+Pois não, senhor?
+Às ordens.
+Diga, senhor.
+Estou ouvindo.
+Um momento, por favor.
+Só um instante, estou verificando.
+Pronto, está feito.
+Feito, senhor.
+Certo, vou cuidar disso agora.
+Entendido. Começando agora mesmo.
+Perfeito. Já está tudo pronto.
+Claro, senhor. É para já.
+Como quiser.
+Com prazer.
+Considere feito.
+Tudo certo por aqui.
+Todos os sistemas estão operacionais.
+Sistemas carregados e prontos para uso.
+Bem-vindo de volta, senhor.
+Que bom ouvir o senhor de novo.
+Posso ajudar em mais alguma coisa?
+Mais alguma coisa, senhor?
+Se precisar, é só chamar.
+Estarei aqui se precisar de mim.
+Desculpe, não entendi. Pode repetir?
+Não consegui ouvir direito. Pode falar de novo?
+Infelizmente não consegui fazer isso agora.
+Houve um problema, mas já estou tentando de novo.
+Parece que a conexão caiu. Vou tentar outra vez em alguns segundos.
+Não encontrei nada com esse nome.
+Achei três resultados. Quer que eu leia o primeiro?
+Encontrei o que o senhor pediu.
+Isso pode levar alguns minutos.
+Terminei. Quer ver o resultado?
+Salvei tudo na pasta de sempre.
+Anotado. Vou lembrar o senhor mais tarde.
+Lembrete criado para daqui a vinte minutos.
+Lembrete: hora de beber água.
+Lembrete: a reunião começa em cinco minutos.
+Cancelei o lembrete, como o senhor pediu.
+Ainda não há nenhum lembrete para hoje.
+O senhor tem duas tarefas em aberto para hoje.
+Nenhuma tarefa pendente. Dia tranquilo.
+A primeira tarefa do dia é revisar o relatório.
+Marquei a tarefa como concluída.
+Movi a tarefa para amanhã.
+Prefere que eu deixe para depois?
+Quer que eu abra o navegador?
+Abrindo o editor de código.
+Abrindo a agenda.
+Abrindo o terminal.
+Abri o link no navegador.
+Copiei o texto. É só colar.
+Pronto para colar.
+Traduzi o trecho selecionado.
+Resumi a página em três pontos.
+Aqui está o resumo do que aconteceu hoje.
+Senhor, chegou uma mensagem nova.
+Há uma atualização esperando a sua aprovação.
+O download terminou.
+A bateria está em vinte por cento. Talvez seja bom ligar o carregador.
+O computador está esquentando um pouco.
+A internet voltou.
+Parece que estamos sem internet no momento.
+
+# --- assistente: música e mídia
+Tocando agora.
+Tocando a sua playlist favorita.
+Tocando algo mais animado.
+Pausei a música.
+Continuando de onde parou.
+Próxima música.
+Voltei para a música anterior.
+Do começo.
+Volume em cinquenta por cento.
+Aumentei o volume.
+Abaixei um pouco o volume.
+Som desligado.
+Som de volta.
+Está tocando Bohemian Rhapsody, do Queen.
+Não tem nada tocando agora.
+Quer ouvir alguma coisa enquanto trabalha?
+Posso sugerir um rock clássico, um sertanejo ou algo para concentrar.
+Essa música é uma das que o senhor mais ouve.
+Vou deixar a música baixinha enquanto falo.
+
+# --- assistente: clima, agenda e notícias
+Agora faz dezoito graus em Belo Horizonte, com céu limpo.
+Hoje a temperatura vai de quinze a vinte e oito graus.
+Há sessenta por cento de chance de chuva no fim da tarde.
+Leve um guarda-chuva, senhor. A previsão é de chuva forte.
+Amanhã deve fazer calor, com máxima de trinta e um graus.
+O tempo segue firme durante toda a semana.
+Está frio lá fora. Melhor levar um casaco.
+O senhor tem uma reunião às dez da manhã.
+A próxima reunião começa daqui a quinze minutos.
+Hoje há duas reuniões: uma às nove e outra às duas da tarde.
+Nenhuma reunião hoje. Agenda livre.
+A agenda de amanhã está mais cheia do que a de hoje.
+Entrando na reunião.
+A reunião já começou há cinco minutos.
+As notícias de hoje: o mercado abriu em alta e o dólar caiu.
+Na tecnologia, uma nova versão do sistema foi lançada.
+No esporte, o time venceu por dois a um, de virada.
+O jogo começa às nove e meia da noite.
+Terminou empatado, um a um.
+
+# --- conversa: frases comuns
+Hoje acordei mais cedo do que de costume.
+O café da manhã estava ótimo.
+Vou dar uma volta no parque depois do almoço.
+A cidade fica linda quando anoitece.
+Esqueci a chave em cima da mesa da cozinha.
+O trânsito estava parado na avenida principal.
+Ela chegou atrasada, mas trouxe bolo para todo mundo.
+Meu irmão mora no interior e cria galinhas.
+A padaria da esquina faz o melhor pão de queijo da região.
+Choveu a noite inteira e a rua amanheceu alagada.
+O ônibus passou cheio e eu tive que esperar o próximo.
+Ninguém sabe ao certo quando a obra vai terminar.
+Comprei um livro novo e já li metade.
+O filme foi longo, mas valeu cada minuto.
+O cachorro do vizinho late toda vez que alguém passa.
+A feira de domingo tem frutas fresquíssimas.
+Precisamos marcar aquele almoço de novo.
+Faz tempo que não viajo para a praia.
+A montanha estava coberta de neblina pela manhã.
+O jardim floresceu depois das primeiras chuvas.
+Ele toca violão desde os doze anos.
+A festa vai ser no sábado, a partir das oito.
+Ainda tenho que responder alguns e-mails.
+O mercado fecha mais cedo aos domingos.
+Deixei o celular carregando na sala.
+A reforma da casa durou quase três meses.
+Que dia lindo para um passeio de bicicleta.
+O bolo de cenoura com cobertura de chocolate acabou rápido.
+Amanhã é feriado, então o escritório estará fechado.
+A biblioteca recebeu uma coleção nova de livros antigos.
+O rio estava calmo e transparente.
+As crianças brincavam no quintal até o sol se pôr.
+O restaurante novo tem uma fila enorme na porta.
+Fiquei surpreso com a notícia.
+Não acredito que já estamos no fim do ano.
+O tempo passa rápido quando estamos ocupados.
+A reunião de condomínio foi tranquila desta vez.
+Minha avó faz a melhor comida do mundo.
+A estrada estava esburacada, mas chegamos bem.
+O avião pousou no horário previsto.
+Os ingressos esgotaram em menos de uma hora.
+Prefiro chá no inverno e suco no verão.
+O gato dormiu a tarde inteira no sofá.
+A luz acabou bem na hora do jantar.
+Ganhei uma planta de presente e não sei cuidar dela.
+O professor explicou a matéria com muita paciência.
+A prova foi mais fácil do que eu imaginava.
+Cheguei em casa cansado, mas feliz.
+O vento derrubou algumas folhas na varanda.
+A loja estava em promoção e comprei dois pares de tênis.
+Vamos pedir pizza hoje à noite?
+A televisão estava ligada, mas ninguém assistia.
+O som da chuva no telhado me ajuda a dormir.
+Esqueci de regar as plantas ontem.
+O carro precisa de uma revisão antes da viagem.
+Fui ao médico e está tudo bem.
+O museu fica aberto até as seis da tarde.
+A ponte foi interditada para manutenção.
+O pôr do sol de hoje estava alaranjado.
+A geladeira está quase vazia. Preciso ir ao mercado.
+
+# --- perguntas
+Que horas são agora?
+Você vai sair hoje à noite?
+Onde fica a estação mais próxima?
+Quanto custa esse livro?
+Por que o céu é azul?
+Quem chegou primeiro na reunião?
+Qual é o seu prato favorito?
+Como foi o seu fim de semana?
+Você já terminou o relatório?
+Será que vai chover amanhã?
+Quando começa o próximo semestre?
+O senhor prefere que eu leia em voz alta?
+Quer que eu repita a última parte?
+Posso desligar as luzes da sala?
+Devo marcar para a semana que vem?
+Alguém viu o meu guarda-chuva?
+Vocês já almoçaram?
+Qual caminho é mais rápido daqui?
+Isso é mesmo necessário?
+Tem certeza de que quer apagar tudo?
+Prefere a versão curta ou a completa?
+Já pensou em tirar umas férias?
+Você lembra o nome daquele filme?
+Quantas pessoas vêm para o jantar?
+Quer café ou água?
+Posso fazer uma pergunta?
+O que o senhor deseja ouvir hoje?
+Vamos começar?
+Está tudo bem com o senhor?
+Ficou claro ou quer que eu explique de novo?
+
+# --- exclamações e emoção
+Que maravilha!
+Excelente escolha, senhor.
+Impressionante, não acha?
+Que pena, eu realmente esperava outro resultado.
+Cuidado, o chão está molhado!
+Finalmente terminamos!
+Parabéns pelo excelente trabalho!
+Nossa, como o tempo voou!
+Isso foi incrível!
+Calma, ainda dá tempo.
+Ufa, foi por pouco.
+Atenção: o sistema será reiniciado em um minuto.
+Alerta: temperatura acima do normal.
+Que surpresa agradável!
+Não se preocupe, eu cuido disso.
+Muito bem, senhor. Missão cumprida.
+Isso não parece nada bom.
+Interessante. Vou investigar.
+Ora, ora. Veja só quem voltou.
+Sinto muito, senhor.
+
+# --- números, horas e datas por extenso
+Agora são nove e quinze da manhã.
+São duas e meia da tarde.
+Faltam dez minutos para o meio-dia.
+São onze horas da noite. Talvez seja hora de descansar.
+O voo sai às seis e quarenta da manhã.
+A entrega está prevista para as quatro horas.
+Hoje é segunda-feira, dia doze de outubro.
+Amanhã é terça-feira, dia treze.
+O prazo termina na sexta-feira.
+Faltam três dias para o fim do mês.
+A reunião foi remarcada para quinta-feira às dez.
+O evento acontece no dia vinte e cinco de dezembro.
+O ano tem trezentos e sessenta e cinco dias.
+Foram mil e duzentas pessoas no evento.
+A temperatura caiu para doze graus.
+O livro tem quatrocentas e oitenta páginas.
+O desconto é de trinta por cento.
+O total ficou em cento e cinquenta reais.
+São sete quilômetros até o centro.
+A viagem dura cerca de duas horas e meia.
+Ele correu cinco quilômetros em vinte e oito minutos.
+O placar terminou três a zero.
+A sala comporta até quarenta pessoas.
+Recebi quinze mensagens enquanto o senhor estava fora.
+Primeiro, segundo e terceiro lugar.
+Um, dois, três, quatro, cinco.
+Seis, sete, oito, nove, dez.
+Onze, doze, treze, quatorze, quinze.
+Vinte, trinta, quarenta, cinquenta.
+Cem, duzentos, quinhentos, mil.
+
+# --- frases longas, com vírgulas e pausas
+Bom dia, senhor. Agora faz dezoito graus, o céu está limpo, e o dia promete ser tranquilo.
+Antes da reunião, vale revisar as anotações de ontem, porque algumas decisões ficaram em aberto.
+Se a chuva continuar, a estrada pode fechar, e talvez seja melhor sair mais cedo.
+A primeira parte do trabalho já está pronta, a segunda está quase, e a terceira começa amanhã.
+Quando o senhor voltar, vou deixar a música tocando baixinho e as luzes da sala acesas.
+O relatório mostra que as vendas subiram, mas os custos também aumentaram bastante.
+Apesar do atraso, a equipe conseguiu entregar tudo dentro do prazo combinado.
+Encontrei dois caminhos possíveis: o primeiro é mais curto, o segundo tem menos trânsito.
+Se quiser, posso preparar um resumo, separar os pontos principais e enviar ainda hoje.
+Durante a noite, a temperatura deve cair bastante, então é bom deixar um cobertor por perto.
+A cidade acordou com neblina, o trânsito ficou lento, e muita gente chegou atrasada ao trabalho.
+Depois de três tentativas, finalmente consegui conectar, e agora está tudo funcionando.
+O plano é simples: primeiro organizamos os dados, depois analisamos, e no fim apresentamos.
+Ele pensou por um momento, olhou pela janela, e decidiu que era hora de mudar.
+Hoje o senhor tem uma reunião às dez, uma tarefa importante à tarde, e nenhum compromisso à noite.
+Se eu puder dar uma sugestão, comece pelo item mais difícil, enquanto a mente ainda está descansada.
+O mercado abriu em alta, mas perdeu força ao longo do dia e fechou praticamente estável.
+A viagem foi longa, cansativa e cheia de imprevistos, mas valeu cada quilômetro.
+Lembre-se de que amanhã é feriado, então os serviços podem funcionar em horário reduzido.
+Analisei os dados com cuidado, e a conclusão é clara: precisamos ajustar o plano.
+Quando a música terminar, vou sugerir outras parecidas, para o senhor não ficar no silêncio.
+O sistema foi atualizado, as falhas foram corrigidas, e o desempenho melhorou bastante.
+Infelizmente, o serviço está fora do ar, mas assim que voltar eu aviso o senhor.
+Hoje foi um dia produtivo: três tarefas concluídas, duas reuniões e nenhum problema grave.
+O senhor pediu silêncio, então vou desligar as notificações até o fim da tarde.
+
+# --- curtas
+Sim.
+Não.
+Talvez.
+Claro.
+Obrigado.
+De nada.
+Com licença.
+Até logo.
+Até amanhã, senhor.
+Boa sorte.
+Entendi.
+Exatamente.
+Pode deixar.
+Agora mesmo.
+Já volto.
+Tudo bem.
+Muito obrigado, senhor.
+Às suas ordens.
+Por aqui, por favor.
+Vamos lá.
+
+# --- palavras e nomes que o assistente fala
+Abrindo o Spotify.
+Abrindo o YouTube.
+Abrindo o WhatsApp.
+Abrindo o Google Chrome.
+O e-mail chegou pelo Gmail.
+A atualização do GitLab terminou.
+Há duas revisões esperando o senhor no GitLab.
+Liguei o modo foco por uma hora.
+O arquivo foi salvo na nuvem.
+O backup foi concluído com sucesso.
+A senha foi alterada.
+O navegador está com muitas abas abertas.
+O aplicativo foi instalado.
+Conectado ao fone de ouvido.
+O microfone está desligado.
+A câmera está ligada.
+A impressora está sem papel.
+O roteador foi reiniciado.
+A tela foi bloqueada.
+O teclado está desconectado.
+
+# --- variedade de sons
+A rápida raposa marrom pulou sobre o cão preguiçoso.
+O rato roeu a roupa do rei de Roma.
+Três pratos de trigo para três tigres tristes.
+O sabiá não sabia que o sábio sabia que o sabiá não sabia assobiar.
+Chove chuva, chove sem parar.
+A aranha arranha a rã, a rã arranha a aranha.
+O peito do pé do Pedro é preto.
+Larga a tia, largatixa, lagartixa.
+Um ninho de mafagafos tinha sete mafagafinhos.
+Bagre branco, branco bagre.
+O ginásio ficou lotado de jovens jogadores.
+A chave do chalé ficou no chão da cozinha.
+Lhama, palha, telha, olho e milho.
+Nhoque, ninho, banho e manhã.
+Exemplo, exceção, excelente e exato.
+Zebra, casa, asa e brasa.
+Ação, coração, canção e emoção.
+Pão, mão, chão e irmão.
+Mãe, cães, pães e capitães.
+Leite quente, gente contente.
+Sorvete de morango com calda de chocolate.
+O jovem jornalista juntou as joias na janela.
+Vovó viu a uva verde na videira.
+Fogo, ferro, faca e farofa.
+Quinze queijos quentes na quitanda.
+Garoto, gato, guerra e guitarra.
+Rua, rio, rede e rato.
+Caro, carro, muro e murro.
+Tapete, tomate, tatu e tutu.
+Dado, dedo, dia e doce.
+Prato, preto, primo e prova.
+Blusa, bloco, clima e claro.
+Flor, fruta, grito e trigo.
+Crise, cravo, drama e dragão.
+Atleta, ritmo, técnico e pneu.
+
+# --- explicações do assistente (frases mais longas)
+Deixa eu explicar de um jeito simples: o arquivo antigo foi substituído, mas guardei uma cópia por segurança.
+O problema estava na configuração da rede, e não no computador, como parecia no começo.
+Para resolver isso, basta reiniciar o aplicativo e entrar com a sua conta outra vez.
+A diferença entre os dois planos é pequena, mas o segundo inclui suporte durante o fim de semana.
+Comparei as três opções, e a do meio oferece o melhor equilíbrio entre preço e qualidade.
+O processo tem quatro etapas, e já concluímos as duas primeiras sem nenhum problema.
+Essa mensagem de erro aparece quando o servidor demora mais do que o esperado para responder.
+Na prática, isso significa que o senhor pode continuar trabalhando enquanto eu termino o resto.
+A atualização é segura, mas recomendo salvar tudo antes de começar, só por precaução.
+Se o senhor preferir, posso fazer isso automaticamente toda manhã, antes do café.
+Esse cálculo considera os últimos trinta dias, então os números de hoje ainda não entraram.
+A boa notícia é que nada foi perdido. A má notícia é que vamos precisar refazer uma parte.
+Seria mais rápido dividir a tarefa em partes menores e resolver uma de cada vez.
+O sinal está fraco porque há muitas paredes entre o roteador e o escritório.
+Encontrei a causa do atraso: uma das etapas estava esperando uma resposta que nunca chegou.
+Por enquanto, a melhor saída é aguardar alguns minutos e tentar novamente.
+Vou acompanhar a situação e aviso o senhor assim que houver qualquer novidade.
+Separei os documentos por data, do mais recente para o mais antigo.
+Esse atalho abre a janela de busca, onde o senhor pode digitar o nome do arquivo.
+Ajustei o brilho da tela, porque o ambiente está mais escuro agora.
+
+# --- conhecimento geral
+O Brasil é o maior país da América do Sul, tanto em território quanto em população.
+A Amazônia abriga uma das maiores biodiversidades do planeta.
+O rio São Francisco atravessa vários estados e é muito importante para o Nordeste.
+Minas Gerais é famosa pelo pão de queijo, pelas montanhas e pelas cidades históricas.
+Ouro Preto foi uma das cidades mais ricas do Brasil durante o ciclo do ouro.
+A Lua leva cerca de vinte e sete dias para dar uma volta completa ao redor da Terra.
+A luz do Sol demora pouco mais de oito minutos para chegar até nós.
+A água ferve a cem graus ao nível do mar.
+O coração humano bate cerca de cem mil vezes por dia.
+As abelhas são essenciais para a polinização de muitas plantas.
+O café chegou ao Brasil no século dezoito e se tornou um dos produtos mais importantes do país.
+A internet mudou a forma como as pessoas se comunicam, trabalham e aprendem.
+Os primeiros computadores ocupavam salas inteiras e eram muito menos potentes do que um celular.
+A música popular brasileira mistura ritmos africanos, europeus e indígenas.
+O samba nasceu no Rio de Janeiro e ganhou o mundo.
+O futebol é a grande paixão nacional, e os clássicos param cidades inteiras.
+A Copa do Mundo acontece a cada quatro anos.
+O oceano cobre mais de setenta por cento da superfície da Terra.
+As estações do ano acontecem por causa da inclinação do eixo da Terra.
+Um ano-luz é a distância que a luz percorre em um ano.
+O cérebro consome boa parte da energia do corpo, mesmo em repouso.
+Dormir bem melhora a memória, o humor e a concentração.
+Beber água ao longo do dia ajuda o corpo a funcionar melhor.
+Uma caminhada curta depois do almoço ajuda na digestão.
+Ler um pouco todos os dias amplia o vocabulário e a imaginação.
+Aprender um idioma novo exige paciência, mas abre muitas portas.
+A matemática está presente em quase tudo, das receitas de bolo às viagens espaciais.
+Os vulcões se formam onde o magma consegue chegar à superfície.
+O arco-íris aparece quando a luz do Sol atravessa as gotas de chuva.
+Os pinguins vivem principalmente no hemisfério sul.
+
+# --- uma história curta
+Era uma vez um inventor que passava as noites em sua oficina, cercado de ferramentas e ideias.
+Certa noite, ele decidiu construir um assistente que pudesse conversar com ele.
+No começo, o assistente só respondia com bipes e luzes piscando.
+Com o tempo, aprendeu a falar, a ouvir e até a contar piadas, nem sempre engraçadas.
+O inventor ria, corrigia e ensinava, sempre com muita paciência.
+Um dia, o assistente perguntou por que o inventor trabalhava tanto.
+O inventor pensou por um instante e respondeu que gostava de transformar ideias em coisas reais.
+Desde então, os dois passaram a trabalhar juntos, cada um com o seu talento.
+O assistente cuidava da agenda, das mensagens e da música.
+O inventor cuidava das ideias, dos desenhos e das grandes decisões.
+Às vezes discordavam, mas sempre encontravam um meio-termo.
+Numa manhã de chuva, a energia acabou, e a oficina ficou em silêncio.
+Quando a luz voltou, a primeira voz que se ouviu foi a do assistente, dizendo bom dia.
+O inventor sorriu, porque percebeu que já não trabalhava sozinho.
+E assim, entre parafusos e conversas, os dias foram passando, um melhor que o outro.
+
+# --- mais frases do dia a dia
+Hoje vou trabalhar de casa, então a manhã deve ser mais tranquila.
+Preciso lembrar de pagar a conta de luz até sexta.
+O aniversário da minha mãe é na semana que vem, e ainda não comprei o presente.
+Marquei consulta com o dentista para o fim do mês.
+Vou aproveitar o sol para lavar o carro.
+O pacote chegou antes do prazo e veio bem embalado.
+A academia estava vazia hoje, consegui treinar sem pressa.
+O jantar de ontem foi um sucesso, todo mundo repetiu.
+Estou pensando em aprender a tocar piano no ano que vem.
+O vizinho está reformando o apartamento e o barulho começa cedo.
+Fiz uma lista de compras, mas esqueci de levar.
+A conversa durou horas e nem percebemos o tempo passar.
+O parque estava cheio de famílias aproveitando o domingo.
+Comecei uma série nova e já estou no quinto episódio.
+A sobremesa era pudim de leite, do jeito que eu gosto.
+O caminho de volta foi mais rápido do que o de ida.
+Organizei a mesa de trabalho e agora consigo me concentrar melhor.
+O livro que eu pedi chegou com a capa amassada.
+Vou dormir mais cedo hoje, porque amanhã o dia começa cedo.
+A cafeteira quebrou bem na segunda-feira de manhã.
+Encontrei uma foto antiga da escola e ri muito.
+A chuva parou e o céu ficou limpo de repente.
+O show foi adiado por causa do mau tempo.
+Precisamos decidir logo onde vamos passar as férias.
+A sopa estava quente demais, tive que esperar esfriar.
+O time jogou bem, mas perdeu nos últimos minutos.
+Estou tentando acordar mais cedo para ler antes do trabalho.
+A janela do quarto está emperrada de novo.
+Hoje o céu está tão azul que parece pintado.
+Faltou açúcar no café, mas eu tomei assim mesmo.
+
+# --- mais perguntas e respostas
+O senhor quer que eu prepare tudo para amanhã cedo?
+Prefere que eu avise por mensagem ou por voz?
+Quer que eu deixe a tela acesa mais um pouco?
+Devo lembrar o senhor dessa tarefa depois do almoço?
+Qual playlist o senhor quer ouvir agora?
+Posso ler as notícias de hoje?
+Quer saber como está o trânsito?
+Deseja que eu confirme a reunião?
+Posso apagar os arquivos temporários?
+O senhor gostaria de ouvir um resumo do dia?
+Sim, senhor. Já estou fazendo.
+Não, senhor. Ainda não recebi a resposta.
+Ainda não, mas deve chegar em alguns minutos.
+Com certeza. Vou deixar tudo pronto.
+Na verdade, isso já foi feito ontem.
+Ainda estou verificando, só mais um instante.
+Por enquanto, nada de novo.
+Até agora, tudo dentro do esperado.
+Pelo que vi, está tudo em ordem.
+Se não me engano, o prazo é amanhã.

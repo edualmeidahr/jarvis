@@ -65,6 +65,10 @@ No fim, o `install.sh` lista o que precisa ser feito à mão: carregar a extens�
 - o Claude Code instalado e logado;
 - `cmake` e `g++` para compilar o whisper.cpp.
 
+## Voz treinada (opcional)
+
+`voz-treino/` gera uma voz Piper própria: `frases.txt` (frases genéricas), `gerar.py` (fala cada frase uma vez por uma voz do Fish Audio; a chave fica no chaveiro), `empacotar.py` (confere cada áudio com o Parakeet e monta o zip) e `treinar-no-colab.ipynb` (ajusta a voz Faber numa GPU do Colab). O áudio e o modelo ficam fora do repositório, em `~/.local/share/jarvis/voz-treino/`: a voz imita um dublador real, é só para uso pessoal.
+
 ## Atalhos
 
 | Tecla | Faz |
