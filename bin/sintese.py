@@ -46,12 +46,14 @@ except Exception:
 
 PAUSA_MIN_S = 0.12   # silêncio interno acima disto é uma pausa
 PAUSA_CURTA_S = 0.04  # o que sobra de uma pausa fora de lugar
+PAUSA_VIRGULA_S = 0.18  # teto da pausa de vírgula: a voz treinada chegava a 570 ms ("às treze e quarenta e cinco, e")
 
 
 def aparar_pausas(audio, taxa, fonemas):
     """Encurta as pausas que o modelo põe fora da pontuação. A voz treinada aprendeu a "tomar fôlego"
     no meio de frase longa ("o MR duzentos … e dezesseis", 180 ms, medido em 14/10). A frase sabe
-    quantas pausas deve ter (a pontuação nos fonemas): as N mais longas ficam, as outras encolhem."""
+    quantas pausas deve ter (a pontuação nos fonemas): as N mais longas ficam, as outras encolhem.
+    E as que ficam têm teto: vírgula longa demais picota a frase (clima, horário da reunião)."""
     a = np.abs(audio.astype(np.float32))
     passo = int(taxa * 0.01)
     if len(a) < passo * 30:
@@ -73,17 +75,19 @@ def aparar_pausas(audio, taxa, fonemas):
         else:
             i += 1
     esperadas = sum(fonemas.count(c) for c in ",;:—") + max(0, sum(fonemas.count(c) for c in ".!?") - 1)
-    sobrando = sorted(pausas, key=lambda p: p[1] - p[0], reverse=True)[esperadas:]
-    if not sobrando:
+    por_tamanho = sorted(pausas, key=lambda p: p[1] - p[0], reverse=True)
+    teto = {p: int(PAUSA_VIRGULA_S / 0.01) for p in por_tamanho[:esperadas]}
+    teto.update({p: int(PAUSA_CURTA_S / 0.01) for p in por_tamanho[esperadas:]})
+    cortes = sorted(p for p in pausas if p[1] - p[0] > teto[p])
+    if not cortes:
         return audio
-    manter = int(PAUSA_CURTA_S / 0.01)
-    cortes = sorted(sobrando)
     pedacos, ultimo = [], 0
     for ini, fim_ in cortes:
-        meio = (ini + fim_) // 2
-        corta_de, corta_ate = (meio - (fim_ - ini) // 2 + manter // 2) * passo, (meio + (fim_ - ini) // 2 - manter // 2) * passo
+        # o silêncio que fica vai metade de cada lado: a fala não encosta
+        sobra = (fim_ - ini - teto[(ini, fim_)]) * passo
+        corta_de = ini * passo + teto[(ini, fim_)] * passo // 2
         pedacos.append(audio[ultimo:corta_de])
-        ultimo = corta_ate
+        ultimo = corta_de + sobra
     pedacos.append(audio[ultimo:])
     return np.concatenate(pedacos)
 
