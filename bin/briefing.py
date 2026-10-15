@@ -162,6 +162,71 @@ def sugestoes():
     return acao.sugestoes(3, menos=(trilha, artista))
 
 
+DIARIO = os.path.expanduser("~/Documentos/obsidian/01 Diário")
+SECOES_ONTEM = ("Amanhã", "Foco", "Aconteceu")  # a ordem é a de importância para o bom dia
+
+
+def _sem_markdown(t):
+    t = re.sub(r"\[\[[^\]|]*\|([^\]]*)\]\]", r"\1", t)    # [[nota|apelido]] → apelido
+    t = re.sub(r"\[\[([^\]]*)\]\]", r"\1", t)                # [[nota]] → nota
+    t = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", t)           # [texto](url) → texto
+    t = re.sub(r"<!--.*?-->", "", t, flags=re.S)
+    return re.sub(r"[`*_>#]", "", t)
+
+
+def ontem(hoje=None):
+    """Onde ele parou: a última nota diária antes de hoje (a de sexta, numa segunda), só o que ele
+    escreveu (Amanhã, Foco, Aconteceu). (dia, texto), ou None se não houver nada escrito."""
+    hoje = hoje or dt.date.today()
+    notas = []
+    for raiz, _, arquivos in os.walk(DIARIO):
+        for a in arquivos:
+            m = re.fullmatch(r"(\d{4}-\d\d-\d\d)\.md", a)
+            if m and m[1] < hoje.isoformat():
+                notas.append((m[1], os.path.join(raiz, a)))
+    if not notas:
+        return None
+    dia, caminho = max(notas)
+    try:
+        texto = open(caminho, encoding="utf-8").read().split("<!-- gitlab:fim -->")[-1]
+    except OSError:
+        return None
+    partes = []
+    for secao in SECOES_ONTEM:
+        m = re.search(rf"^## {secao}\s*\n(.*?)(?=^## |\Z)", texto, re.M | re.S)
+        corpo = " ".join(l.strip(" -\t") for l in _sem_markdown(m[1] if m else "").splitlines() if l.strip(" -\t"))
+        if corpo:
+            partes.append(f"{secao}: {corpo}")
+    if not partes:
+        return None
+    return dia, " | ".join(partes)[:900]
+
+
+def futebol_do_dia():
+    """O jogo do time só quando importa no bom dia: o de ontem (placar) ou o de hoje (horário)."""
+    def buscar():
+        spec = importlib.util.spec_from_file_location("fontes", os.path.join(BIN, "fontes.py"))
+        fontes = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fontes)
+        return fontes._agenda(config.get("JARVIS_TIME", "Cruzeiro"))
+    texto = com_cache("futebol", 3600, buscar) or ""
+    return " ".join(f for f in re.split(r"(?<=\.)\s+", texto)
+                    if f.startswith("Último jogo, ontem") or (f.startswith("Próximo") and ", hoje " in f))
+
+
+def roteiro_do_dia(hoje, reunioes_hoje):
+    """O ângulo do bom dia conforme o dia: segunda abre a semana, sexta fecha, dia sem reunião é foco."""
+    if hoje.weekday() == 0:
+        semana = [f"{['segunda', 'terça', 'quarta', 'quinta', 'sexta'][d.weekday()]}: {'; '.join(agenda(d)) or 'nada'}"
+                  for d in (hoje + dt.timedelta(days=i) for i in range(5))]
+        return "SEGUNDA: dê uma visão curta da semana (uma frase). Agenda da semana: " + " | ".join(semana)
+    if hoje.weekday() == 4:
+        return "SEXTA: diga em uma frase o que vale fechar antes do fim de semana (tarefas e MRs abaixo)."
+    if not reunioes_hoje:
+        return "SEM REUNIÕES HOJE: diga que a agenda está livre, um bom dia para foco."
+    return ""
+
+
 def carregar(nome):
     try:
         return json.load(open(os.path.join(CACHE, nome)))
@@ -186,22 +251,28 @@ def dados():
     revs = [f"MR {r['iid']}: {r['status']}" for r in g.get("reviews") or []]
     tarefas = subprocess.run([os.path.join(BIN, "editar-tarefa.py"), "listar"], capture_output=True, text=True).stdout
     abertas = [l[2:] for l in tarefas.splitlines() if l.startswith("☐")]
+    nota_ontem = ontem(hoje)
+    jogo = futebol_do_dia()
     linhas = [
         f"HOJE: {['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'][hoje.weekday()]}, "
         f"{hoje:%d/%m}, {dt.datetime.now():%H:%M}.",
+        f"ONTEM (nota diária de {nota_ontem[0][8:10]}/{nota_ontem[0][5:7]}): {nota_ontem[1]}" if nota_ontem
+        else "ONTEM: nada escrito na nota diária",
+        roteiro_do_dia(hoje, agenda(hoje)),
         f"CLIMA: {frase_clima(c) if c else 'indisponível'}",
         f"AGENDA DE HOJE: {'; '.join(agenda(hoje)) or 'nenhuma reunião'}",
         f"AGENDA DE AMANHÃ: {'; '.join(agenda(hoje + dt.timedelta(days=1))) or 'nenhuma reunião'}",
         f"GITLAB: meus MRs: {'; '.join(mrs) or 'nenhum'}. Reviews para ele: {'; '.join(revs) or 'nenhum'}.",
         f"TAREFAS EM ABERTO: {'; '.join(abertas) or 'nenhuma'}",
         f"NOTÍCIAS: " + (" | ".join(f"[{x['tema']}] {x['titulo']}" for x in ns) or "indisponíveis"),
+        f"FUTEBOL ({config.get('JARVIS_TIME', 'Cruzeiro')}): {jogo or 'nada ontem nem hoje'}",
         f"SUGESTÕES DE MÚSICA (o que ele mais pede): {'; '.join(sugestoes()) or 'nenhuma ainda'}",
     ]
     cartoes = {"gerado_em": time.time(), "clima": c, "agenda_hoje": agenda(hoje), "noticias": ns,
                "melhorias": qtd, "mrs": mrs, "reviews": revs, "tarefas": abertas}
     os.makedirs(os.path.dirname(CARTOES), exist_ok=True)
     json.dump(cartoes, open(CARTOES, "w"), ensure_ascii=False)
-    return "\n".join(linhas)
+    return "\n".join(l for l in linhas if l)
 
 
 if __name__ == "__main__":

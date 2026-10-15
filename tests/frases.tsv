@@ -295,3 +295,11 @@ Jarvis, Entra na daily.	comando entrar
 Jarvis, abre a call.	comando entrar
 Jarvis, entrar na reunião de growth.	comando entrar
 Jarvis, Entrar no Meet.	comando entrar
+# --- Bom dia rápido e retomada depois de interromper (14/10)
+Jarvis, Bom dia rápido.	comando bom_dia_rapido
+Jarvis, Resumo rápido.	comando bom_dia_rapido
+Jarvis, Pula as notícias.	comando pular_noticias
+Jarvis, pula essa parte.	comando pular_assunto
+Jarvis, Próximo assunto.	comando pular_assunto
+Jarvis, Continua o bom dia.	comando retomar_bom_dia
+Jarvis, Pula essa.	acao midia proxima

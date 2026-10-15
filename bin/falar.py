@@ -313,10 +313,11 @@ def tocar(texto):
     return tocar_fluxo(frases(texto))
 
 
-def tocar_fluxo(partes):
+def tocar_fluxo(partes, ao_falar=None):
     """Fala frases que podem ir chegando aos poucos (um gerador: o Claude escrevendo). A próxima é
     sintetizada enquanto a atual toca, sem buraco entre elas, e cada frase vai para o estado.json
-    — a tela mostra a legenda e acende o cartão do assunto."""
+    — a tela mostra a legenda e acende o cartão do assunto.
+    ao_falar(frase): chamado quando cada frase começa a tocar (o bom dia sabe onde foi interrompido)."""
     if nao_perturbe():
         for _ in partes:  # esvazia o gerador: quem escreve não fica esperando
             pass
@@ -349,6 +350,8 @@ def tocar_fluxo(partes):
                     if not caminho:
                         continue
                     estado.marcar("falando", frase)
+                    if ao_falar:
+                        ao_falar(frase)
                     # o pid fica num arquivo enquanto fala: a escuta corta a fala se você interromper
                     tocador = subprocess.Popen(["pw-play", *SEM_VOLUME_SALVO, caminho], stderr=subprocess.DEVNULL)
                     _medir(frase)

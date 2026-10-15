@@ -103,8 +103,8 @@ def _tocar_com_duck(texto):
     return _com_duck(_tocar_sem_duck, texto)
 
 
-def tocar_fluxo(partes):
-    return _com_duck(_tocar_fluxo_sem_duck, partes)
+def tocar_fluxo(partes, ao_falar=None):
+    return _com_duck(_tocar_fluxo_sem_duck, partes, ao_falar)
 
 
 falar.tocar = _tocar_com_duck
@@ -234,6 +234,11 @@ COMANDOS = [
     (re.compile(r"^(quais (sao )?as (noticias|novidades)( de hoje| do dia)?|me (da|de|conta|conte|fala) as noticias( de hoje)?|"
                 r"noticias( de hoje| do dia)?|o que (esta acontecendo|aconteceu) no mundo( hoje)?|tem (alguma )?noticia( nova)?)$"), "noticias"),
     (re.compile(r"^(bom dia|bom dia jarvis|oi bom dia)$"), "bom_dia"),
+    (re.compile(r"^(bom dia (rapido|resumido|curto)|(um )?resumo rapido|so o essencial)$"), "bom_dia_rapido"),
+    # durante ou logo depois do bom dia: retoma o que faltou falar, sem a parte pedida
+    (re.compile(r"^(pula|pular|pule|sem) (as )?noticias$"), "pular_noticias"),
+    (re.compile(r"^((pula|pular|pule) (essa parte|esse assunto|isso)|proximo assunto|pode pular)$"), "pular_assunto"),
+    (re.compile(r"^(continua|continue|continuar|pode continuar|termina|termine) (o )?(bom dia|resumo)$"), "retomar_bom_dia"),
     (re.compile(r"^(o que (temos|tem|tenho|a gente tem) (pra|para|pro) hoje|como (esta|e|vai ser) (o )?meu dia|"
                 r"meu dia|agenda de hoje|o que tem hoje)$"), "hoje"),
     (re.compile(r"^((qual (e )?a )?proxima reunia[o]?|tem reunia[o]? agora|minha proxima reunia[o]?)$"), "proxima"),
@@ -967,13 +972,47 @@ def perguntar_ao_claude(pergunta, pagina=None):
 # ---------------------------------------------------------------- bom dia
 
 BOM_DIA_FEITO = os.path.expanduser("~/.claude/cache/bom-dia-{dia}")
+BOM_DIA_RESTO = os.path.join(JV, "bom-dia-resto.json")  # o que faltou falar quando você interrompeu
+PEDIDO_BOM_DIA_RAPIDO = """Faça um BOM DIA RÁPIDO, no seu jeito de J.A.R.V.I.S., a partir dos DADOS abaixo.
+A saudação ("{saudacao}") JÁ FOI DITA. No máximo 4 frases curtas, nesta ordem: o clima numa frase
+(temperatura e chuva); a próxima reunião de hoje; o que pede ação dele hoje (GitLab e tarefas), numa frase.
+Sem frase de efeito, sem notícias, sem futebol, sem oferecer música. Sem markdown, sem lista.
+NUNCA leia código de issue: diga só o assunto, curto. MR pelo número por extenso.
+
+DADOS:
+{dados}"""
+# o assunto de cada frase do bom dia, na ordem em que aparecem; frase sem palavra-chave fica no
+# assunto da anterior (as notícias, depois do "Nas notícias", não dizem "notícia" de novo)
+ASSUNTOS_BOM_DIA = [
+    ("clima", r"\b(graus?|chuva|chover|clima|temperatura|c[eé]u|nublad|ensolarad|garoa|frio|calor|guarda-chuva)"),
+    ("agenda", r"\b(reuni[aã]o|reuni[õo]es|daily|agenda|compromisso|semana)"),
+    ("trabalho", r"\b(MR|merge|thread|threads|gitlab|tarefa|tarefas|issue|review)"),
+    ("noticias", r"\b(not[ií]cias?|manchete)"),
+    ("futebol", r"\b(cruzeiro|jogo|placar|partida)"),
+    ("musica", r"\b(ouvir|tocar|playlist|m[uú]sica)"),
+]
+
+
+def assuntos_do_bom_dia(frases, anterior=None):
+    saida = []
+    for f in frases:
+        # dentro das notícias, uma manchete com "chuva" ou "jogo" continua sendo notícia: só o
+        # futebol e a oferta de música, que vêm depois, encerram o bloco
+        candidatos = [a for a in ASSUNTOS_BOM_DIA if anterior != "noticias" or a[0] in ("futebol", "musica")]
+        anterior = next((nome for nome, re_ in candidatos if re.search(re_, f, re.I)), anterior)
+        saida.append(anterior)
+    return saida
 PEDIDO_BOM_DIA = """Faça o BOM DIA falado de hoje, no seu jeito de J.A.R.V.I.S., a partir dos DADOS abaixo.
 A saudação ("{saudacao}") JÁ FOI DITA: comece direto por uma frase de efeito curta e original
 (nada de "o universo não parou"), depois, em frases curtas e nesta ordem:
+- se ONTEM tiver algo, uma frase de continuidade: onde ele parou ou o que planejou (prefira o "Amanhã",
+  depois o "Foco"), pelo assunto, sem código; se não tiver nada, pule;
 - o clima (agora, mínima e máxima, chance de chuva; só diga guarda-chuva se passar de 50%);
-- as reuniões de hoje (e as de amanhã só se houver algo fora da rotina);
+- as reuniões de hoje (e as de amanhã só se houver algo fora da rotina); se houver SEGUNDA, SEXTA ou
+  SEM REUNIÕES HOJE nos dados, siga essa orientação aqui;
 - GitLab e tarefas: só o que pede ação dele hoje; se nada pede, diga isso numa frase;
-- as notícias, uma frase cada, sem citar o veículo;
+- as notícias: comece por "Nas notícias", uma frase cada, sem citar o veículo;
+- FUTEBOL: se houver jogo ontem ou hoje, uma frase (placar ou horário); se "nada", não fale de futebol;
 - termine perguntando se ele quer ouvir alguma coisa, oferecendo as SUGESTÕES DE MÚSICA dos dados pelo nome
   (por exemplo: "Quer ouvir alguma coisa? Posso tocar Queen, Bruno e Marrone ou uma playlist de eletrônica.").
   Se ele responder "sim" ou "a primeira", toque a sugestão com o acao.py; se disser outra, toque a outra.
@@ -1108,14 +1147,15 @@ def frases_do_claude(pedido, guardar, espera=None, **sessao):
     return entregar()
 
 
-def dar_bom_dia(texto):
-    musica_ = MusicaDeFundo()
+def dar_bom_dia(texto, rapido=False):
+    musica_ = MusicaDeFundo() if not rapido else None
     hora = dt.datetime.now().hour
     saudacao = (f"{'Bom dia' if hora < 12 else 'Boa tarde' if hora < 18 else 'Boa noite'}, {TRATAMENTO}. "
                 "Todos os sistemas operacionais.")
     # os dados (clima e notícias podem ir à internet) são juntados na thread do Claude: a saudação
     # não espera por eles. Antes, com o cache vencido, a busca vinha antes do "Bom dia"
-    montar = lambda: PEDIDO_BOM_DIA.format(saudacao=saudacao, dados=briefing.dados())
+    pedido = PEDIDO_BOM_DIA_RAPIDO if rapido else PEDIDO_BOM_DIA
+    montar = lambda: pedido.format(saudacao=saudacao, dados=briefing.dados())
     inteiro, faladas = {}, []
 
     do_claude = frases_do_claude(montar, lambda t: inteiro.update(texto=t))  # já começa a escrever
@@ -1126,9 +1166,10 @@ def dar_bom_dia(texto):
             faladas.append(f)
             yield f
 
-    _falando["trilha"] = bool(MUSICA_BOM_DIA)
+    _falando["trilha"] = bool(MUSICA_BOM_DIA) and not rapido
+    ditas = []
     try:
-        tocar_fluxo(frases())
+        tocar_fluxo(frases(), ao_falar=ditas.append)
         if not faladas:  # sem cérebro: o jeito antigo, ou só os dados, sem estilo
             corpo = rodar_claude(comando_claude(pergunta=montar()), "") or \
                 f"{briefing.frase_clima()} {briefing.frase_noticias()}"
@@ -1136,10 +1177,69 @@ def dar_bom_dia(texto):
             falar.tocar(corpo)
     finally:
         _falando["trilha"] = False
-        musica_.acabar()
+        if musica_:
+            musica_.acabar()
+    if interrompido() and faladas:
+        guardar_resto_do_bom_dia(faladas, ditas, do_claude)
     os.makedirs(os.path.dirname(BOM_DIA_FEITO), exist_ok=True)
     open(BOM_DIA_FEITO.format(dia=dt.date.today()), "w").close()
     notificar(texto, f"{saudacao} {' '.join(faladas)}")  # a oferta do fim fica esperando resposta
+    return 0
+
+
+def guardar_resto_do_bom_dia(faladas, ditas, do_claude):
+    """Você interrompeu ("Ei Jarvis, pula as notícias"): o que faltou falar fica guardado, a partir
+    da frase cortada. O Claude pode ainda estar escrevendo: espera o fim (o seu pedido novo roda em
+    outro processo e espera este arquivo aparecer)."""
+    ultima = ditas[-1] if ditas else None
+    inicio = faladas.index(ultima) if ultima in faladas else 0
+    resto = faladas[inicio:] + [f for f in do_claude]
+    os.makedirs(JV, exist_ok=True)
+    json.dump({"quando": time.time(), "frases": resto,
+               "assunto_cortado": assuntos_do_bom_dia(faladas[:inicio + 1])[-1] if faladas else None},
+              open(BOM_DIA_RESTO + ".tmp", "w"), ensure_ascii=False)
+    os.replace(BOM_DIA_RESTO + ".tmp", BOM_DIA_RESTO)
+
+
+def retomar_bom_dia(texto, valor):
+    """Fala o que faltou do bom dia interrompido: tudo (continua), sem as notícias, ou sem o assunto
+    que estava sendo falado quando você cortou (pula essa parte)."""
+    prazo = time.time() + 20  # o processo do bom dia pode estar terminando de guardar
+    resto = None
+    while time.time() < prazo:
+        try:
+            r = json.load(open(BOM_DIA_RESTO))
+            if time.time() - r["quando"] < 300:
+                resto = r
+                break
+        except (OSError, ValueError, KeyError):
+            pass
+        time.sleep(0.3)
+    if not resto or not resto.get("frases"):
+        fala = "Não há bom dia para retomar agora."
+        notificar(texto, fala)
+        falar.tocar(fala)
+        return 0
+    frases = resto["frases"]
+    assuntos = assuntos_do_bom_dia(frases)
+    if valor == "pular_noticias":
+        manter = [f for f, a in zip(frases, assuntos) if a != "noticias"]
+    elif valor == "pular_assunto":
+        cortado = resto.get("assunto_cortado") or assuntos[0]
+        i = 0
+        while i < len(frases) and assuntos[i] == cortado:
+            i += 1
+        manter = frases[i:]
+    else:
+        manter = frases
+    try:
+        os.remove(BOM_DIA_RESTO)
+    except OSError:
+        pass
+    if not manter:
+        manter = [uma("Era só isso.", f"Era tudo, {TRATAMENTO}.")]
+    tocar_fluxo(iter(manter))
+    notificar(texto, " ".join(manter))  # a oferta de música do fim fica esperando resposta
     return 0
 
 
@@ -1486,6 +1586,16 @@ def main():
                 print("comando bom_dia (briefing pelo Claude)")
                 return 0
             return dar_bom_dia(texto)
+        elif valor == "bom_dia_rapido":
+            if mostrar:
+                print("comando bom_dia_rapido (briefing curto pelo Claude)")
+                return 0
+            return dar_bom_dia(texto, rapido=True)
+        elif valor in ("pular_noticias", "pular_assunto", "retomar_bom_dia"):
+            if mostrar:
+                print(f"comando {valor} (retoma o bom dia interrompido)")
+                return 0
+            return retomar_bom_dia(texto, valor)
         elif valor == "clima":
             fala = escrito = briefing.frase_clima(quando="amanha" if "amanha" in normalizar(texto) else "hoje")
         elif valor == "noticias":
