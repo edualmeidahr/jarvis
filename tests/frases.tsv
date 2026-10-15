@@ -281,6 +281,12 @@ Jarvis, Prássima.	acao midia proxima
 Jarvis, liga.	chamada ligar
 Jarvis, liga aí.	chamada ligar
 Jarvis, vamos conversar.	chamada ligar
+Jarvis, Entrar no modo chamada.	chamada ligar
+Jarvis, quero que você entre no modo chamado.	chamada ligar
+Jarvis, ativa o modo chamada.	chamada ligar
+Jarvis, vamos à chamada agora.	chamada ligar
+Jarvis, modo conversa.	chamada ligar
+Jarvis, o que é o modo chamada?	claude
 Jarvis, liga o Spotify.	acao abrir o spotify
 Jarvis, Ei Jarvis, qual a próxima reunião?	comando proxima
 

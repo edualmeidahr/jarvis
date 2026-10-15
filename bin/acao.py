@@ -807,9 +807,13 @@ def volume(quanto):
     return f"Volume em {v} por cento." if v is not None else "Pronto."
 
 
+IGNORAR_MICROFONE = ("pw-record", "pw-cat", "GNOME Settings", "pavucontrol", "Volume Control")
+
+
 def microfone_em_uso():
     """O app que está gravando o microfone agora (o Chrome numa reunião do Meet), ou None.
-    O próprio Jarvis (pw-record, o filtro sem eco) não conta."""
+    O próprio Jarvis (pw-record, o filtro sem eco) não conta, nem o medidor de volume das
+    Configurações do GNOME (com a aba Som aberta ele lê o microfone, e o Jarvis via uma reunião)."""
     try:
         objetos = json.loads(subprocess.run(["pw-dump"], capture_output=True, text=True, timeout=5).stdout)
     except (OSError, ValueError, subprocess.TimeoutExpired):
@@ -817,7 +821,8 @@ def microfone_em_uso():
     for o in objetos:
         p = (o.get("info") or {}).get("props") or {}
         app = p.get("application.name")
-        if p.get("media.class", "").startswith("Stream/Input") and app and app not in ("pw-record", "pw-cat"):
+        if (p.get("media.class", "").startswith("Stream/Input") and app and app not in IGNORAR_MICROFONE
+                and p.get("media.name") != "Peak detect"):
             return app
     return None
 

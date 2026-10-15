@@ -173,6 +173,9 @@ Você só pode MEXER NO COMPUTADOR por este comando (nenhum outro):
      (com o Spotify tocando, muda o volume dele; "volume sistema <isso>" muda o do computador)
 Ele imprime uma frase; responda com ela, ou algo do mesmo tamanho.
 
+Modo chamada: existe, mas não é com você. Ele liga dizendo "Jarvis, vamos conversar" (ou "liga",
+"modo chamada") e desliga com "tchau". Se ele pedir a chamada e o pedido chegou aqui, diga isso numa frase.
+
 Lembretes e rotinas (timers do sistema), por este comando:
   ~/.claude/bin/lembrar.py em 20m "texto"            (s, m, h; "1h30m")
   ~/.claude/bin/lembrar.py as 15:30 "texto"
@@ -506,7 +509,13 @@ def reconhecer_fonte(resto):
 # modo chamada: "Ei Jarvis, liga" ou "vamos conversar". Só a frase inteira: "liga o Spotify" é abrir
 LIGAR_CHAMADA = re.compile(r"^(liga|ligar|liga ai|liga a chamada|modo (chamada|conversa)|"
                            r"(entra|entrar) (no|em) modo (chamada|conversa)|vamos conversar|bora conversar|"
-                           r"quero conversar|vamos bater (um )?papo|conversa comigo)( um pouco)?$")
+                           r"quero conversar|vamos bater (um )?papo|conversa comigo|vamos (a |pra |para a )?chamada)"
+                           r"( um pouco| agora)?$")
+# "ativa o modo chamada", "quero que você entre no modo chamado" (o Parakeet ouve "chamado"): falar do
+# modo já basta, menos para sair dele (isso é o DESLIGAR_CHAMADA) ou perguntar dele ("o que é o modo chamada")
+CITA_CHAMADA = re.compile(r"\bmodo (chamad[ao]|conversa)\b")
+NAO_LIGA = re.compile(r"\b(sai|sair|saia|desliga|desligar|desligue|encerra|encerrar|encerre|fim|para|parar|pare)\b|"
+                      r"^(o que|que e|que modo|como|qual|quando|por que|porque|pra que|para que|explica|me explica)\b")
 DESLIGAR_CHAMADA = re.compile(r"^(tchau|tchau tchau|ate mais|ate logo|ate depois|pode desligar|desliga|desligar|"
                               r"desliga ai|encerra|encerrar|pode encerrar|encerra a (chamada|conversa)|"
                               r"fim (da|de) (chamada|conversa)|sai do modo (chamada|conversa))( jarvis)?$")
@@ -533,7 +542,7 @@ def reconhecer_assistente(resto, chamou):
     """As regras novas, antes das ações: (tipo, valor) ou None."""
     if chamou and FECHAR_DIA.match(resto):
         return "fechamento", resto
-    if chamou and LIGAR_CHAMADA.match(resto):
+    if chamou and (LIGAR_CHAMADA.match(resto) or CITA_CHAMADA.search(resto) and not NAO_LIGA.search(resto)):
         return "chamada", "ligar"
     if em_chamada() and DESLIGAR_CHAMADA.match(resto):
         return "chamada", "desligar"  # fora da chamada, "tchau" e "desliga" seguem o caminho de sempre
