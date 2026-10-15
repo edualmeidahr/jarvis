@@ -46,7 +46,7 @@ except Exception:
 
 PAUSA_MIN_S = 0.12   # silêncio interno acima disto é uma pausa
 PAUSA_CURTA_S = 0.04  # o que sobra de uma pausa fora de lugar
-PAUSA_VIRGULA_S = 0.18  # teto da pausa de vírgula: a voz treinada chegava a 570 ms ("às treze e quarenta e cinco, e")
+PAUSA_VIRGULA_S = 0.09  # teto da pausa de vírgula (escolhido de ouvido em 14/10, entre 180, 130 e 90 ms): a voz treinada chegava a 570 ms ("às treze e quarenta e cinco, e")
 
 
 def aparar_pausas(audio, taxa, fonemas):
