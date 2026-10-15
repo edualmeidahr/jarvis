@@ -722,7 +722,7 @@ function quadro(t) {
   gctx.clearRect(0, 0, G, G);
   gctx.globalCompositeOperation = "lighter";
   ctx.globalCompositeOperation = "lighter";
-  const amp = 0.025 + energia * 0.11;
+  const amp = 0.025 + energia * 0.07;
   const faiscas = [];
   for (const fio of FIOS) {
     const inc = fio.a + 0.3 * Math.sin(t * 0.00035 * fio.v + fio.f);
@@ -743,14 +743,15 @@ function quadro(t) {
     }
     // o brilho corre pela casca: cada fita acende e apaga um pouco fora de fase das outras
     const onda = 0.55 + 0.45 * Math.sin(t * 0.0025 + fio.f * 3);
-    const luz = (0.10 + energia * 0.75 + pico * 0.3) * onda;
-    gctx.strokeStyle = cor(Math.min(1, luz * 0.55)); gctx.lineWidth = fio.larg * (1.6 + energia * 2.4); gctx.stroke(caminho);
-    ctx.strokeStyle = cor(Math.min(1, 0.16 + luz * 0.6)); ctx.lineWidth = fio.larg * (0.9 + energia * 0.9); ctx.stroke(fino);
+    // a voz mexe mais no brilho do que na espessura: linha grossa demais vira uma mancha
+    const luz = (0.12 + energia * 0.55 + pico * 0.15) * onda;
+    gctx.strokeStyle = cor(Math.min(1, luz * 0.45)); gctx.lineWidth = fio.larg * (1.3 + energia * 0.7); gctx.stroke(caminho);
+    ctx.strokeStyle = cor(Math.min(1, 0.16 + luz * 0.65)); ctx.lineWidth = fio.larg * (0.8 + energia * 0.3); ctx.stroke(fino);
     if (fx) faiscas.push([fx[0], fx[1], luz]);
   }
   ctx.drawImage(brilho, 0, 0, W, W);   // a camada de brilho ampliada: fica suave sozinha
   for (const [x, y, luz] of faiscas) {
-    const tam = 10 + 26 * Math.min(1, luz);
+    const tam = 8 + 14 * Math.min(1, luz);
     ctx.globalAlpha = Math.min(1, 0.25 + luz);
     ctx.drawImage(faiscaImg, x - tam / 2, y - tam / 2, tam, tam);
   }
