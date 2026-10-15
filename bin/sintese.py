@@ -44,6 +44,50 @@ except Exception:
     ingles = None
 
 
+PAUSA_MIN_S = 0.12   # silêncio interno acima disto é uma pausa
+PAUSA_CURTA_S = 0.04  # o que sobra de uma pausa fora de lugar
+
+
+def aparar_pausas(audio, taxa, fonemas):
+    """Encurta as pausas que o modelo põe fora da pontuação. A voz treinada aprendeu a "tomar fôlego"
+    no meio de frase longa ("o MR duzentos … e dezesseis", 180 ms, medido em 14/10). A frase sabe
+    quantas pausas deve ter (a pontuação nos fonemas): as N mais longas ficam, as outras encolhem."""
+    a = np.abs(audio.astype(np.float32))
+    passo = int(taxa * 0.01)
+    if len(a) < passo * 30:
+        return audio
+    energia = a[:len(a) // passo * passo].reshape(-1, passo).mean(axis=1)
+    quieto = energia < 300
+    falas = np.flatnonzero(~quieto)
+    if not len(falas):
+        return audio
+    pausas, i, fim = [], falas[0], falas[-1]
+    while i < fim:
+        if quieto[i]:
+            j = i
+            while j < fim and quieto[j]:
+                j += 1
+            if (j - i) * 0.01 >= PAUSA_MIN_S:
+                pausas.append((i, j))
+            i = j
+        else:
+            i += 1
+    esperadas = sum(fonemas.count(c) for c in ",;:—") + max(0, sum(fonemas.count(c) for c in ".!?") - 1)
+    sobrando = sorted(pausas, key=lambda p: p[1] - p[0], reverse=True)[esperadas:]
+    if not sobrando:
+        return audio
+    manter = int(PAUSA_CURTA_S / 0.01)
+    cortes = sorted(sobrando)
+    pedacos, ultimo = [], 0
+    for ini, fim_ in cortes:
+        meio = (ini + fim_) // 2
+        corta_de, corta_ate = (meio - (fim_ - ini) // 2 + manter // 2) * passo, (meio + (fim_ - ini) // 2 - manter // 2) * passo
+        pedacos.append(audio[ultimo:corta_de])
+        ultimo = corta_ate
+    pedacos.append(audio[ultimo:])
+    return np.concatenate(pedacos)
+
+
 class PiperPython:
     """A mesma voz pelo piper-tts (Python), que aceita fonemas no meio do texto ([[ ... ]]): é o que
     deixa falar "issue" e "Highway to Hell" em inglês. Mesmos parâmetros do Piper de linha de comando."""
@@ -66,7 +110,8 @@ class PiperPython:
         taxa, partes = self.voz.config.sample_rate, []
         silencio = bytes(2 * int(taxa * self.pausa))
         for pedaco in self.voz.synthesize(texto, self.config):
-            partes += [pedaco.audio_int16_bytes, silencio]  # a pausa entre frases do --sentence_silence
+            audio = aparar_pausas(pedaco.audio_int16_array, taxa, "".join(pedaco.phonemes))
+            partes += [audio.astype(np.int16).tobytes(), silencio]  # a pausa entre frases do --sentence_silence
         if not partes:
             return False
         with wave.open(saida, "wb") as w:
