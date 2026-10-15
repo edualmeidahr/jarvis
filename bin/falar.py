@@ -28,6 +28,8 @@ import sys
 import tempfile
 import threading
 import time
+import wave
+from array import array
 
 # o WirePlumber memoriza o volume de cada tipo de stream e aplica no próximo. Um som do Jarvis
 # que terminou abaixado (ducking) deixava todos os seguintes mudos — aconteceu duas vezes.
@@ -308,6 +310,31 @@ def etapa(nome):
         pass
 
 
+NIVEL_VOZ = os.path.join(os.environ.get("XDG_RUNTIME_DIR", tempfile.gettempdir()), "jarvis", "voz-nivel.json")
+PASSO_NIVEL_S = 0.05
+
+
+def _marcar_nivel(caminho):
+    """A curva de volume da frase que vai tocar (um valor a cada 50 ms, de 0 a 1), com a hora em que
+    começa: a esfera da tela pulsa com a voz de verdade, não com um seno."""
+    try:
+        with wave.open(caminho) as w:
+            taxa = w.getframerate()
+            amostras = array("h", w.readframes(w.getnframes()))
+        passo = max(1, int(taxa * PASSO_NIVEL_S))
+        niveis = []
+        for i in range(0, len(amostras), passo):
+            bloco = amostras[i:i + passo]
+            rms = (sum(x * x for x in bloco[::4]) / max(1, len(bloco[::4]))) ** 0.5
+            niveis.append(round(min(1.0, (rms / 12000) ** 0.8), 3))  # 12000 ≈ o pico da fala (p99 medido)
+        os.makedirs(os.path.dirname(NIVEL_VOZ), exist_ok=True)
+        with open(NIVEL_VOZ + ".tmp", "w") as f:
+            json.dump({"inicio": time.time(), "passo": PASSO_NIVEL_S, "niveis": niveis}, f)
+        os.replace(NIVEL_VOZ + ".tmp", NIVEL_VOZ)
+    except (OSError, wave.Error, EOFError):
+        pass
+
+
 def tocar(texto):
     """Fala o texto frase a frase (ver tocar_fluxo)."""
     return tocar_fluxo(frases(texto))
@@ -353,6 +380,7 @@ def tocar_fluxo(partes, ao_falar=None):
                     if ao_falar:
                         ao_falar(frase)
                     # o pid fica num arquivo enquanto fala: a escuta corta a fala se você interromper
+                    _marcar_nivel(caminho)
                     tocador = subprocess.Popen(["pw-play", *SEM_VOLUME_SALVO, caminho], stderr=subprocess.DEVNULL)
                     _medir(frase)
                     with open(FALANDO, "w") as f:
@@ -390,6 +418,7 @@ def tocar_fluxo(partes, ao_falar=None):
                     if caminho:
                         estado.marcar("falando", frase)
                         # o pid fica num arquivo enquanto fala: a escuta corta a fala se você interromper
+                        _marcar_nivel(caminho)
                         tocador = subprocess.Popen(["pw-play", *SEM_VOLUME_SALVO, caminho], stderr=subprocess.DEVNULL)
                         with open(FALANDO, "w") as f:
                             f.write(str(tocador.pid))
@@ -432,6 +461,7 @@ def tocar_fluxo(partes, ao_falar=None):
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
             # o pid fica num arquivo enquanto fala: "Ei Jarvis" no meio corta a fala (escuta.py)
             estado.marcar("falando", texto)
+            _marcar_nivel(tocar_este)
             tocador = subprocess.Popen(["pw-play", *SEM_VOLUME_SALVO, tocar_este], stderr=subprocess.DEVNULL)
             os.makedirs(os.path.dirname(FALANDO), exist_ok=True)
             with open(FALANDO, "w") as f:

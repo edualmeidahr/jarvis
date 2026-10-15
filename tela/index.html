@@ -49,8 +49,8 @@
     position: relative; height: 100vh; padding: 28px 36px 24px;
     display: grid; gap: 22px;
     grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.35fr) minmax(260px, 1fr);
-    grid-template-rows: auto 1fr auto;
-    grid-template-areas: "topo topo topo" "esq centro dir" "legenda legenda legenda";
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas: "topo topo topo" "linha linha linha" "esq centro dir" "legenda legenda legenda";
   }
 
   /* topo: relógio à esquerda, nome no meio, estado à direita */
@@ -80,7 +80,9 @@
     font-size: 11px; font-weight: 600; letter-spacing: 2.2px; text-transform: uppercase;
     color: var(--texto-3); margin-bottom: 10px; display: flex; justify-content: space-between;
   }
-  .cartao.aceso { border-color: var(--acento); box-shadow: 0 0 0 1px var(--acento), 0 0 28px var(--brilho); transform: scale(1.025); }
+  .cartao.aceso { border-color: var(--acento); box-shadow: 0 0 0 1px var(--acento), 0 0 28px var(--brilho); transform: scale(1.04); }
+  /* enquanto ele fala de um assunto, os outros cartões recuam */
+  body.foco .cartao:not(.aceso) { opacity: .38; filter: saturate(.5); }
   .cartao.vazio { opacity: .55; }
   .numero { font-size: 46px; font-weight: 200; line-height: 1; font-variant-numeric: tabular-nums; }
   .numero small { font-size: 18px; color: var(--texto-2); margin-left: 2px; }
@@ -95,6 +97,33 @@
   .noticia span { display: block; color: var(--texto-3); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px; }
   .musica { color: var(--texto); font-size: 15px; }
   .musica .onde { color: var(--texto-3); font-size: 12px; margin-top: 4px; }
+  /* tocando agora (Spotify): capa, música, progresso e a próxima */
+  .faixa { display: flex; gap: 12px; align-items: center; }
+  .faixa img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 18px rgba(0,0,0,.45); }
+  .faixa .t { color: var(--texto); font-size: 15px; font-weight: 500; line-height: 1.25; }
+  .faixa .a { color: var(--texto-2); font-size: 13px; margin-top: 2px; }
+  .barra { height: 3px; border-radius: 2px; background: rgba(110,190,255,.15); margin-top: 12px; overflow: hidden; }
+  .barra i { display: block; height: 100%; width: 0; background: var(--acento); transition: width .9s linear; }
+  .tempos { display: flex; justify-content: space-between; color: var(--texto-3); font-size: 11px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .seguir { color: var(--texto-3); font-size: 12px; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* próxima reunião, embaixo do nome */
+  .contagem { margin-top: 8px; font-size: 13px; letter-spacing: 1px; color: var(--texto-2); }
+  .contagem b { color: var(--texto); font-weight: 500; }
+  body.reuniao-perto .contagem b { color: var(--alerta); }
+  :root { --alerta: #ff8a4c; }
+
+  /* linha do tempo do dia: reuniões, livres e o agora */
+  .linha-tempo { grid-area: linha; position: relative; height: 34px; margin-top: -6px; }
+  body.sem-linha .linha-tempo { display: none; }
+  .trilho { position: absolute; left: 0; right: 0; top: 12px; height: 8px; border-radius: 4px; background: rgba(110,190,255,.08); border: 1px solid var(--borda); }
+  .trilho .passado { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px 0 0 4px; background: rgba(110,190,255,.10); }
+  .trilho .bloco { position: absolute; top: -3px; bottom: -3px; border-radius: 4px; background: var(--acento); opacity: .75; box-shadow: 0 0 10px var(--brilho); }
+  .trilho .bloco.foi { opacity: .3; box-shadow: none; }
+  .trilho .agora { position: absolute; top: -7px; bottom: -7px; width: 2px; background: var(--texto); box-shadow: 0 0 8px var(--texto); }
+  .marcas { position: absolute; left: 0; right: 0; top: 24px; height: 12px; color: var(--texto-3); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .marcas span { position: absolute; transform: translateX(-50%); }
+  .rotulo-bloco { position: absolute; top: -4px; transform: translateX(-50%); font-size: 10px; color: var(--texto-2); white-space: nowrap; }
 
   /* centro: a esfera */
   .centro { grid-area: centro; position: relative; display: grid; place-items: center; min-height: 0; }
@@ -113,7 +142,7 @@
   .legenda.some { opacity: 0; }
 
   @media (max-width: 900px) {
-    .tela { grid-template-columns: 1fr; grid-template-areas: "topo" "centro" "esq" "dir" "legenda"; overflow-y: auto; height: auto; }
+    .tela { grid-template-columns: 1fr; grid-template-areas: "topo" "linha" "centro" "esq" "dir" "legenda"; overflow-y: auto; height: auto; }
     body { overflow: auto; }
   }
   @media (prefers-reduced-motion: reduce) { .cartao { transition: none; } }
@@ -123,12 +152,14 @@
 <div class="tela">
   <header class="topo">
     <div class="relogio"><div class="hora" id="hora">--:--</div><div class="data" id="data"></div></div>
-    <div class="marca"><b>J.A.R.V.I.S</b></div>
+    <div class="marca"><b>J.A.R.V.I.S</b><div class="contagem" id="contagem"></div></div>
     <div class="situacao">
       <span class="chip"><i></i><span id="estado">Em espera</span></span>
       <div class="sub" id="escuta"></div>
     </div>
   </header>
+
+  <div class="linha-tempo" id="linha-tempo"><div class="trilho" id="trilho"></div><div class="marcas" id="marcas"></div></div>
 
   <section class="coluna esq">
     <article class="cartao" id="c-clima" data-assunto="clima">
@@ -159,7 +190,13 @@
       <ul class="lista" id="trabalho"></ul>
     </article>
     <article class="cartao" id="c-musica" data-assunto="musica">
-      <h3><span>Tocando</span></h3>
+      <h3><span>Tocando agora</span><span id="m-onde"></span></h3>
+      <div id="m-spotify" hidden>
+        <div class="faixa"><img id="m-capa" alt=""><div><div class="t" id="m-titulo"></div><div class="a" id="m-artista"></div></div></div>
+        <div class="barra"><i id="m-barra"></i></div>
+        <div class="tempos"><span id="m-pos"></span><span id="m-dur"></span></div>
+        <div class="seguir" id="m-proxima"></div>
+      </div>
       <div class="musica" id="musica">—</div>
     </article>
     <article class="cartao" id="c-noticias" data-assunto="noticias">
@@ -179,12 +216,22 @@ const ASSUNTOS = [
   ["clima", /\b(graus?|chuva|chover|clima|temperatura|c[eé]u|nublad|ensolarad|garoa|frio|calor|guarda-chuva)/i],
   ["agenda", /\b(reuni[aã]o|reuni[õo]es|daily|planning|review|agenda|compromisso)/i],
   ["trabalho", /\b(MR|merge|thread|threads|gitlab|tarefa|tarefas|issue)/i],
-  ["musica", /\b(tocando|m[uú]sica|playlist|faixa|volume)/i],
+  ["musica", /\b(tocando|m[uú]sica|playlist|faixa|volume|ouvir|tocar)/i],
   ["noticias", /\b(not[ií]cias?|manchete|melhorias?)/i],
   ["lembretes", /\b(lembrete|lembrar|lembro|rotina)/i],
 ];
 const $ = (id) => document.getElementById(id);
 let estado = "parado";
+// o assunto fica aceso entre uma frase e outra (as notícias não repetem "notícia" a cada manchete);
+// dentro das notícias, só a música (a oferta do fim do bom dia) troca o assunto
+let assuntoFixo = null, ultimaFala = 0, dados = {}, musicaAtual = null;
+const SEM_LINHA = new URLSearchParams(location.search).has("sem-linha");
+
+function classesDoCorpo() {
+  const perto = document.body.dataset.perto === "1";
+  document.body.className = [estado, assuntoFixo ? "foco" : "", perto ? "reuniao-perto" : "", SEM_LINHA ? "sem-linha" : ""]
+    .filter(Boolean).join(" ");
+}
 
 function texto(el, valor) { if (el.textContent !== valor) el.textContent = valor; }
 
@@ -197,8 +244,8 @@ function lista(el, itens, vazio) {
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 function desenhar(d) {
+  dados = d;
   estado = d.estado in NOMES ? d.estado : "parado";
-  document.body.className = estado;
   texto($("estado"), NOMES[estado]);
   texto($("rotulo"), estado === "parado" ? "em espera" : NOMES[estado].toLowerCase());
   texto($("escuta"), d.escuta ? "diga “Ei Jarvis”" : "escuta desligada — use o Insert");
@@ -207,8 +254,16 @@ function desenhar(d) {
   const frase = estado === "falando" ? d.detalhe : "";
   texto($("legenda"), frase);
   $("legenda").classList.toggle("some", !frase);
-  const assunto = frase ? (ASSUNTOS.find(([, re]) => re.test(frase)) || [null])[0] : null;
-  document.querySelectorAll(".cartao").forEach((c) => c.classList.toggle("aceso", c.dataset.assunto === assunto));
+  if (frase) {
+    const candidatos = ASSUNTOS.filter(([nome]) => assuntoFixo !== "noticias" || nome === "musica");
+    const achado = candidatos.find(([, re]) => re.test(frase));
+    if (achado) assuntoFixo = achado[0];
+    ultimaFala = Date.now();
+  } else if (Date.now() - ultimaFala > 2500) {
+    assuntoFixo = null;
+  }
+  document.querySelectorAll(".cartao").forEach((c) => c.classList.toggle("aceso", c.dataset.assunto === assuntoFixo));
+  classesDoCorpo();
 
   // clima
   if (d.clima) {
@@ -232,6 +287,19 @@ function desenhar(d) {
   const trabalho = [...(d.mrs || []).map(mr), ...(d.reviews || []).map((r) => "Review: " + r), ...(d.tarefas || []).slice(0, 3)]
     .map((t) => `<li><span>${esc(t.replace(/ — \S+ \d{4}-\d\d-\d\d$/, ""))}</span></li>`);
   lista($("trabalho"), trabalho, "Nada pendente");
+  musicaAtual = d.musica;
+  $("m-spotify").hidden = !d.musica;
+  $("musica").hidden = !!d.musica;
+  if (d.musica) {
+    if ($("m-capa").getAttribute("src") !== d.musica.capa) $("m-capa").src = d.musica.capa;
+    texto($("m-titulo"), (d.musica.tocando ? "" : "⏸ ") + d.musica.titulo);
+    texto($("m-artista"), d.musica.artista);
+    texto($("m-proxima"), d.musica.proxima ? `A seguir: ${d.musica.proxima}` : "");
+    texto($("m-onde"), "Spotify");
+    progresso();
+  } else {
+    texto($("m-onde"), "");
+  }
   const m = (d.tocando || "").replace(/^Está tocando /, "").replace(/^Está pausado: /, "⏸ ");
   const onde = m.match(/ no (YouTube Music|Chrome|YouTube)\.?$/);
   $("musica").innerHTML = m && !/^Não tem nada/.test(m)
@@ -255,7 +323,56 @@ async function buscar() {
 setInterval(buscar, 500);
 buscar();
 
+const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
+function progresso() {
+  const m = musicaAtual;
+  if (!m || !m.duracao_ms) return;
+  const pos = Math.min(m.duracao_ms, m.progresso_ms + (m.tocando ? Date.now() - m.quando * 1000 : 0));
+  $("m-barra").style.width = `${(100 * pos) / m.duracao_ms}%`;
+  texto($("m-pos"), mmss(pos));
+  texto($("m-dur"), mmss(m.duracao_ms));
+}
+
+const curto = (t) => String(t || "").split(" - ")[0];
+function contagem() {
+  const agora = Date.now(), dia = dados.dia || [];
+  const atual = dia.find((r) => Date.parse(r.inicio) <= agora && agora < Date.parse(r.fim));
+  const prox = dia.find((r) => Date.parse(r.inicio) > agora);
+  let html = "", perto = false;
+  if (atual) {
+    html = `<b>${esc(curto(atual.titulo))}</b> agora`;
+  } else if (prox) {
+    const min = Math.ceil((Date.parse(prox.inicio) - agora) / 60000);
+    perto = min <= 5;
+    html = min <= 120 ? `<b>${esc(curto(prox.titulo))}</b> em ${min} min` : `<b>${esc(curto(prox.titulo))}</b> às ${prox.inicio.slice(11, 16)}`;
+    if (perto) html += ` · diga “entrar na reunião”`;
+  }
+  if ($("contagem").innerHTML !== html) $("contagem").innerHTML = html;
+  if (document.body.dataset.perto !== (perto ? "1" : "0")) { document.body.dataset.perto = perto ? "1" : "0"; classesDoCorpo(); }
+}
+
+function linhaDoTempo() {
+  if (SEM_LINHA) return;
+  const dia = dados.dia || [], hoje = new Date(), h = (iso) => { const d = new Date(iso); return d.getHours() + d.getMinutes() / 60; };
+  const ini = Math.min(8, ...dia.map((r) => Math.floor(h(r.inicio)))), fim = Math.max(19, ...dia.map((r) => Math.ceil(h(r.fim))));
+  const pct = (x) => `${(100 * (x - ini)) / (fim - ini)}%`, agora = hoje.getHours() + hoje.getMinutes() / 60;
+  let html = `<div class="passado" style="width:${pct(Math.max(ini, Math.min(fim, agora)))}"></div>`;
+  for (const r of dia) {
+    const a = h(r.inicio), b = h(r.fim), foi = Date.parse(r.fim) < Date.now();
+    html += `<div class="bloco ${foi ? "foi" : ""}" style="left:${pct(a)};width:calc(${pct(b)} - ${pct(a)})" title="${esc(r.titulo)}"></div>`;
+    html += `<div class="rotulo-bloco" style="left:${pct((a + b) / 2)};top:-16px">${esc(curto(r.titulo))}</div>`;
+  }
+  if (agora >= ini && agora <= fim) html += `<div class="agora" style="left:${pct(agora)}"></div>`;
+  if ($("trilho").innerHTML !== html) $("trilho").innerHTML = html;
+  let marcas = "";
+  for (let x = ini; x <= fim; x += 2) marcas += `<span style="left:${pct(x)}">${x}h</span>`;
+  if ($("marcas").innerHTML !== marcas) $("marcas").innerHTML = marcas;
+}
+
 function relogio() {
+  progresso();
+  contagem();
+  linhaDoTempo();
   const agora = new Date();
   texto($("hora"), agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
   const data = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
@@ -275,7 +392,13 @@ const PONTOS = Array.from({ length: 420 }, () => {
 });
 const ANEIS = [ [0.86, 0.9, 1.2, [8, 10]], [0.78, -1.4, 2.4, [2, 14]], [0.70, 2.2, 1.0, [40, 18]], [0.94, -0.5, 0.8, [1, 6]] ];
 const VEL = { parado: 0.25, ouvindo: 0.6, pensando: 1.8, falando: 0.9 };
-let fase = 0, energia = 0, ondas = [];
+let fase = 0, energia = 0, ondas = [], nivelReal = { voz: null, mic: null };
+// o volume de verdade: a curva da frase que toca (falando) e o microfone (ouvindo)
+async function buscarNivel() {
+  if (estado !== "falando" && estado !== "ouvindo") { nivelReal = { voz: null, mic: null }; return; }
+  try { nivelReal = await (await fetch("/nivel", { cache: "no-store" })).json(); } catch (e) { /* tenta no próximo */ }
+}
+setInterval(buscarNivel, 60);
 
 function cor(alpha) {
   const hex = getComputedStyle(document.body).getPropertyValue("--acento").trim() || "#4fb3ff";
@@ -287,10 +410,13 @@ function quadro(t) {
   const reduzir = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const v = reduzir ? 0.05 : VEL[estado];
   fase += 0.012 * v;
-  const alvo = estado === "falando" ? 0.55 + 0.45 * Math.abs(Math.sin(t / 110) * Math.sin(t / 47))
+  const real = estado === "falando" ? nivelReal.voz : estado === "ouvindo" ? nivelReal.mic : null;
+  const alvo = real != null ? 0.2 + 0.8 * real
+             : estado === "falando" ? 0.55 + 0.45 * Math.abs(Math.sin(t / 110) * Math.sin(t / 47))
              : estado === "ouvindo" ? 0.5 : estado === "pensando" ? 0.35 : 0.12 + 0.06 * Math.sin(t / 900);
-  energia += (alvo - energia) * 0.15;
-  if (estado === "ouvindo" && !reduzir && Math.random() < 0.03) ondas.push(0);
+  energia += (alvo - energia) * (real != null ? 0.4 : 0.15);
+  // ouvindo: uma onda nova a cada pico da sua voz (sem nível, de vez em quando, como antes)
+  if (estado === "ouvindo" && !reduzir && (real != null ? real > 0.45 && Math.random() < 0.25 : Math.random() < 0.03)) ondas.push(0);
 
   ctx.clearRect(0, 0, W, W);
   // halo
@@ -315,8 +441,14 @@ function quadro(t) {
     ctx.strokeStyle = cor(0.35 + energia * 0.4); ctx.lineWidth = largura * 2; ctx.stroke(); ctx.restore();
   });
 
+  // reunião em 5 minutos: um anel laranja pulsando por fora
+  if (document.body.dataset.perto === "1") {
+    ctx.beginPath(); ctx.arc(C, C, W * 0.475, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255,138,76,${0.35 + 0.35 * Math.abs(Math.sin(t / 500))})`; ctx.lineWidth = 6; ctx.stroke();
+  }
+
   // esfera de pontos
-  const R = W * 0.24 * (1 + energia * 0.12);
+  const R = W * 0.24 * (1 + energia * 0.18);
   const ca = Math.cos(fase * 1.3), sa = Math.sin(fase * 1.3), cb = Math.cos(0.4), sb = Math.sin(0.4);
   for (const [x, y, z] of PONTOS) {
     const x1 = x * ca - z * sa, z1 = x * sa + z * ca;

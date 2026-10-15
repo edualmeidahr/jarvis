@@ -105,6 +105,20 @@ def bolha(*args):
     subprocess.run([sys.executable, os.path.join(BIN, "bolha.py"), *args], check=False)
 
 
+NIVEL_MIC = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "jarvis", "mic-nivel.json")
+
+
+def marcar_nivel_mic(bloco):
+    """O volume do microfone agora (0 a 1), para a esfera da tela reagir à sua voz enquanto ouve."""
+    rms = float(np.sqrt(np.mean(bloco.astype(np.float32) ** 2)))
+    try:
+        with open(NIVEL_MIC + ".tmp", "w") as f:
+            f.write('{"t": %.3f, "nivel": %.3f}' % (time.time(), min(1.0, (rms / 4000) ** 0.7)))
+        os.replace(NIVEL_MIC + ".tmp", NIVEL_MIC)
+    except OSError:
+        pass
+
+
 def gravar_wav(amostras, caminho=WAV):
     os.makedirs(EST, exist_ok=True)
     with wave.open(caminho, "wb") as w:
@@ -307,6 +321,7 @@ class Escuta:
         while True:
             bloco = self.ler(mic)
             blocos.append(bloco)
+            marcar_nivel_mic(bloco)
             # a voz é decidida pelo microfone sem eco quando existe: ele não ouve a música nem a voz
             # do Jarvis saindo pelas caixas, que antes viravam "pedido" (a letra da música transcrita)
             nota_vad = self.vad.predict(self.bloco_limpo if self.bloco_limpo is not None else bloco)
