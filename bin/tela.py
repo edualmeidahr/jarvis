@@ -3,6 +3,7 @@
 
     tela.py          serviço (systemd --user jarvis-tela), em http://127.0.0.1:8765
     tela.py abrir    abre a tela numa janela do Chrome, em tela cheia
+    tela.py demo     mostra o modo palco do bom dia com frases de exemplo, sem falar (para ver a tela)
 
 Só escuta em 127.0.0.1: nada de fora da máquina chega aqui. A página pergunta /dados a cada
 meio segundo; o servidor monta a resposta com o que já existe:
@@ -233,9 +234,36 @@ def abrir():
                      stderr=subprocess.DEVNULL, start_new_session=True)
 
 
+DEMO = ["Bom dia, senhor. Todos os sistemas operacionais.",
+        "Ontem o senhor ficou de revisar o MR duzentos e dezesseis.",
+        "Agora faz vinte e dois graus em Belo Horizonte, com céu limpo.",
+        "Hoje vai de dezenove a vinte e seis graus, com chance de chuva à tarde.",
+        "A daily começa à uma e quarenta e cinco.",
+        "No GitLab, o MR duzentos e dois tem threads esperando o senhor.",
+        "Nas notícias, a pesquisa do segundo turno mostra empate técnico.",
+        "A inteligência artificial muda o combate ao cibercrime.",
+        "Quer ouvir alguma coisa? Posso tocar Queen ou uma playlist de eletrônica."]
+
+
+def demo():
+    """O modo palco com frases de exemplo: a mesma marca e o mesmo estado que o bom dia usa."""
+    estado = _modulo("estado")
+    os.makedirs(JV, exist_ok=True)
+    open(PALCO, "w").close()
+    try:
+        for frase in DEMO:
+            estado.marcar("falando", frase)
+            time.sleep(3)
+    finally:
+        os.remove(PALCO)
+        estado.marcar("parado")
+
+
 if __name__ == "__main__":
     if sys.argv[1:] == ["abrir"]:
         abrir()
+    elif sys.argv[1:] == ["demo"]:
+        demo()
     else:
         def manter_fresco():
             """Clima (30 min) e notícias (1 h) sempre no cache: no "bom dia" eles não vão à internet."""

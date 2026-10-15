@@ -165,39 +165,53 @@
   canvas#esfera { flex: 0 1 auto; height: min(100%, 62vh); max-width: 100%; aspect-ratio: 1; min-height: 0; transition: opacity .6s; }
   .rotulo-centro { flex: 0 0 auto; font-family: var(--mono); color: var(--texto-3); font-size: 11px; letter-spacing: 6px; text-transform: uppercase; }
 
-  /* palco: a apresentação do bom dia */
+  /* palco: a apresentação do bom dia, dentro da esfera (como no vídeo de referência): o assunto do
+     momento numa faixa de vidro na metade de cima, os que já passaram numa fileira logo abaixo, e a
+     esfera aparecendo em volta e através do vidro */
   .palco { grid-column: 1 / -1; grid-row: 3; position: relative; z-index: 2; pointer-events: none; display: none;
-           flex-direction: column; align-items: center; justify-content: center; gap: 24px; min-height: 0; }
+           flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-height: 0; }
   body.em-palco .palco { display: flex; }
   body.em-palco .coluna { opacity: 0; transform: scale(.96); }
+  body.em-palco .centro { grid-column: 1 / -1; }
+  body.em-palco canvas#esfera { height: 100%; }
   body.em-palco .linha-tempo { opacity: .35; }
-  body.em-palco canvas#esfera { opacity: .85; }
   body.em-palco .rotulo-centro { visibility: hidden; }
-  .heroi-slot { width: min(720px, 58vw); min-height: 0; display: grid; }
-  .heroi { grid-area: 1 / 1; animation: entra .55s cubic-bezier(.2,.8,.2,1) both; border-color: var(--acento);
-           box-shadow: 0 0 0 1px var(--acento), 0 0 40px var(--brilho), 0 18px 48px rgba(0,0,0,.45); padding: 20px 24px; }
-  .heroi.sai { animation: sai .35s ease-in both; }
-  /* desfoque de fundo + animação travava a pintura da página no Chrome sem GPU: o palco usa fundo opaco */
-  .heroi, .mini { backdrop-filter: none; background: linear-gradient(160deg, rgba(24, 58, 116, 0.92), rgba(8, 22, 50, 0.94)); }
-  .heroi .rotulos b { font-size: 22px; }
-  .heroi .icone { width: 40px; height: 40px; border-radius: 11px; }
-  .heroi .numero { font-size: 64px; }
-  .heroi ul.lista li, .heroi .noticia, .heroi .ontem-texto p { font-size: 16px; }
-  .heroi .noticia { -webkit-line-clamp: 4; }
-  .heroi .faixa img { width: 96px; height: 96px; }
-  .heroi .faixa .t { font-size: 20px; }
-  .doca { display: flex; gap: 16px; justify-content: center; flex-wrap: nowrap; max-width: 100%; }
-  .mini { width: 230px; padding: 12px; animation: doca .5s cubic-bezier(.2,.8,.2,1) both; opacity: .9; }
-  .mini .cab { margin-bottom: 8px; }
-  .mini .rotulos b { font-size: 14px; }
-  .mini .rotulos small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mini .icone { width: 26px; height: 26px; border-radius: 8px; }
-  .mini > :not(.cab):not(.rodape) { max-height: 64px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); }
-  .mini .numero { font-size: 30px; }
-  .mini .etiquetas, .mini .rodape { display: none; }
-  @keyframes entra { from { opacity: 0; transform: translateY(16px) scale(.94); } to { opacity: 1; transform: none; } }
-  @keyframes sai { to { opacity: 0; transform: translateY(40px) scale(.9); } }
-  @keyframes doca { from { opacity: 0; transform: translateY(-24px) scale(1.08); } to { opacity: .9; transform: none; } }
+  .heroi-slot { width: min(560px, 46vw); height: 230px; display: grid; align-items: end; }
+  .doca { height: 128px; display: flex; gap: 12px; justify-content: center; align-items: flex-start; flex-wrap: nowrap; }
+  .heroi, .mini { background: linear-gradient(160deg, rgba(30, 70, 140, 0.50), rgba(8, 24, 56, 0.62));
+                  backdrop-filter: blur(5px); border-color: rgba(120, 200, 255, .45); }
+  .heroi { grid-area: 1 / 1; padding: 16px 20px; max-height: 230px; overflow: hidden;
+           box-shadow: 0 0 0 1px rgba(120, 200, 255, .35), 0 0 32px var(--brilho), 0 14px 40px rgba(0,0,0,.35); }
+  .heroi .rotulos b { font-size: 20px; }
+  .heroi .icone { width: 36px; height: 36px; border-radius: 10px; }
+  .heroi .numero { font-size: 52px; }
+  .heroi ul.lista li, .heroi .noticia, .heroi .ontem-texto p { font-size: 15px; }
+  .heroi .noticia { -webkit-line-clamp: 2; padding: 4px 0; }
+  .heroi .faixa img { width: 72px; height: 72px; }
+  .heroi .faixa .t { font-size: 18px; }
+  .heroi .rodape { margin-top: 8px; }
+  /* materializar: a moldura de vidro chega primeiro, o conteúdo aparece logo depois */
+  .heroi.chega { animation: moldura .45s cubic-bezier(.2,.8,.2,1) both; }
+  .heroi.chega > * { animation: conteudo .35s ease-out .18s both; }
+  @keyframes moldura { from { opacity: 0; transform: scale(.96); filter: blur(6px); box-shadow: 0 0 0 1px var(--acento), 0 0 60px var(--brilho); }
+                       to { opacity: 1; transform: none; filter: none; } }
+  @keyframes conteudo { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .mini { width: 170px; height: 120px; padding: 10px 12px; overflow: hidden; }
+  .mini .cab { margin-bottom: 6px; gap: 8px; }
+  .mini .rotulos b { font-size: 13px; }
+  .mini .rotulos small { font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini .icone { width: 24px; height: 24px; border-radius: 7px; }
+  .mini .icone svg { width: 13px; height: 13px; }
+  .mini > :not(.cab):not(.rodape) { max-height: 64px; overflow: hidden; font-size: 12px;
+                                    -webkit-mask-image: linear-gradient(#000 55%, transparent); mask-image: linear-gradient(#000 55%, transparent); }
+  .mini .numero { font-size: 28px; }
+  .mini ul.lista li, .mini .noticia, .mini .ontem-texto p { font-size: 12px; }
+  .mini .etiquetas, .mini .rodape, .mini .trio { display: none; }
+  .mini.chega { animation: pousa .2s ease-out both; }
+  @keyframes pousa { from { opacity: .6; } to { opacity: 1; } }
+  /* o cartão que sai voa até a vaga dele na fileira (posição fixa, animado pelo script) */
+  .voando { position: fixed; margin: 0; z-index: 3; transform-origin: top left;
+            transition: transform .45s cubic-bezier(.4,0,.2,1), opacity .45s; pointer-events: none; }
 
   /* legenda: a frase que ele está falando */
   .legenda {
@@ -231,17 +245,19 @@
     .barra { margin-top: 8px; }
     .seguir { margin-top: 4px; }
     .legenda { min-height: 44px; }
-    .heroi-slot { width: min(640px, 62vw); }
-    .heroi { padding: 16px 20px; }
-    .heroi .numero { font-size: 48px; }
-    .mini { width: 190px; }
-    .palco { gap: 12px; }
+    .heroi-slot { width: min(480px, 52vw); height: 190px; }
+    .heroi { padding: 12px 16px; max-height: 190px; }
+    .heroi .numero { font-size: 40px; }
+    .heroi .rotulos b { font-size: 17px; }
+    .doca { height: 104px; }
+    .mini { width: 140px; height: 98px; }
+    .palco { gap: 8px; }
   }
   @media (max-width: 900px) {
     .tela { grid-template-columns: 1fr; grid-template-areas: "topo" "linha" "centro" "esq" "dir" "legenda"; overflow-y: auto; height: auto; }
     body { overflow: auto; }
   }
-  @media (prefers-reduced-motion: reduce) { .cartao, .heroi, .mini { transition: none; animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .cartao, .heroi, .mini, .voando { transition: none; animation: none; } }
 </style>
 </head>
 <body>
@@ -480,18 +496,34 @@ function atualizarPalco(ativo) {
   const original = document.querySelector(`.coluna .cartao[data-assunto="${assuntoFixo}"]`);
   if (!original) return;
   const antigo = $("heroi").firstElementChild;
-  if (antigo && heroiAssunto && !$("doca").querySelector(`[data-assunto="${heroiAssunto}"]`)) {
-    const mini = antigo.cloneNode(true);
-    mini.className = "cartao mini";
-    $("doca").appendChild(mini);
-  }
-  if (antigo) { antigo.classList.add("sai"); setTimeout(() => antigo.remove(), 350); }
+  if (antigo) mandarParaDoca(antigo, heroiAssunto);
   const heroi = original.cloneNode(true);
   heroi.removeAttribute("id");
   heroi.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
-  heroi.className = "cartao heroi";
+  heroi.className = "cartao heroi chega";
   $("heroi").appendChild(heroi);
   heroiAssunto = assuntoFixo;
+}
+
+// O cartão que sai encolhe e desliza até a vaga dele na fileira (a técnica FLIP: mede onde está,
+// mede onde vai ficar, e anima só o transform). Assunto que já está na fileira só some.
+function mandarParaDoca(antigo, assunto) {
+  const de = antigo.getBoundingClientRect();
+  if (!assunto || $("doca").querySelector(`[data-assunto="${assunto}"]`)) { antigo.remove(); return; }
+  const mini = antigo.cloneNode(true);
+  mini.className = "cartao mini";
+  mini.style.visibility = "hidden";
+  $("doca").appendChild(mini);
+  const para = mini.getBoundingClientRect();
+  Object.assign(antigo.style, { left: `${de.left}px`, top: `${de.top}px`, width: `${de.width}px`, height: `${de.height}px` });
+  antigo.classList.remove("chega");
+  antigo.classList.add("voando");
+  document.body.appendChild(antigo);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    antigo.style.transform = `translate(${para.left - de.left}px, ${para.top - de.top}px) scale(${para.width / de.width}, ${para.height / de.height})`;
+    antigo.style.opacity = "0.6";
+  }));
+  setTimeout(() => { antigo.remove(); mini.style.visibility = ""; mini.classList.add("chega"); }, 460);
 }
 
 const CEU = { 0: "Céu limpo", 1: "Quase sem nuvens", 2: "Parcialmente nublado", 3: "Nublado", 45: "Neblina", 48: "Neblina",
@@ -599,10 +631,14 @@ setInterval(equalizador, 80);
 // falando pulsa com a voz de verdade (nível do /nivel).
 const cv = $("esfera"), ctx = cv.getContext("2d");
 const W = cv.width, C = W / 2;
-const FIOS = Array.from({ length: 30 }, () => ({
-  a: Math.random() * Math.PI, b: Math.random() * Math.PI * 2,   // inclinação do círculo
-  k: 2 + Math.floor(Math.random() * 3), f: Math.random() * 6.28, // ondulação
-  v: 0.4 + Math.random() * 0.8, larg: 0.6 + Math.random() * 1.4,
+// a maioria dos fios fica quase de frente (vira um anel na borda), alguns inclinados atravessam
+const FIOS = Array.from({ length: 34 }, (_, i) => ({
+  a: i % 10 < 7 ? Math.random() * 0.5 : 0.5 + Math.random() * 1.1, // inclinação
+  b: Math.random() * Math.PI * 2,                                     // giro em volta do centro
+  r: 0.86 + Math.random() * 0.2,                                      // espessura da casca
+  k: 2 + Math.floor(Math.random() * 3), f: Math.random() * 6.28,     // ondulação
+  v: 0.3 + Math.random() * 0.9, larg: 0.8 + Math.random() * 1.6,
+  faisca: Math.random() * Math.PI * 2,                                // um ponto de luz correndo no fio
 }));
 const VEL = { parado: 0.25, ouvindo: 0.6, pensando: 1.8, falando: 0.9 };
 let fase = 0, energia = 0, ondas = [];
@@ -640,41 +676,49 @@ function quadro(t) {
 
   // anel fino de fora, tracejado e girando
   ctx.save(); ctx.translate(C, C); ctx.rotate(fase * 0.6); ctx.setLineDash([2, 10]);
-  ctx.beginPath(); ctx.arc(0, 0, W * 0.44, 0, Math.PI * 2);
-  ctx.strokeStyle = cor(0.35 + energia * 0.3); ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+  ctx.beginPath(); ctx.arc(0, 0, W * 0.47, 0, Math.PI * 2);
+  ctx.strokeStyle = cor(0.22 + energia * 0.2); ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
 
   if (document.body.dataset.perto === "1") {  // reunião em 5 minutos: anel laranja pulsando
-    ctx.beginPath(); ctx.arc(C, C, W * 0.475, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(C, C, W * 0.49, 0, Math.PI * 2);
     ctx.strokeStyle = `rgba(255,138,76,${0.35 + 0.35 * Math.abs(Math.sin(t / 500))})`; ctx.lineWidth = 6; ctx.stroke();
   }
 
-  // os fios de luz
-  const R = W * 0.30 * (1 + energia * 0.10);
-  const ga = fase * 1.1, cg = Math.cos(ga), sg = Math.sin(ga);
+  // os fios de luz: cada um é um círculo levemente inclinado que ondula e gira em volta do centro
+  const R = W * 0.36 * (1 + energia * 0.06);
   ctx.globalCompositeOperation = "lighter";
+  const pontos = [];
   for (const fio of FIOS) {
-    const ca = Math.cos(fio.a), sa = Math.sin(fio.a), cb = Math.cos(fio.b + fase * fio.v * 0.3), sb = Math.sin(fio.b + fase * fio.v * 0.3);
-    ctx.beginPath();
-    for (let s = 0; s <= 72; s++) {
-      const th = (s / 72) * Math.PI * 2;
-      // ondulação: mais forte quando ele fala alto
-      const r = 1 + (0.03 + energia * 0.09) * Math.sin(fio.k * th + t / (700 / fio.v) + fio.f);
-      let x = Math.cos(th) * r, y = Math.sin(th) * r, z = 0;
-      [y, z] = [y * ca - z * sa, y * sa + z * ca];   // inclina
-      [x, z] = [x * cb - z * sb, x * sb + z * cb];   // gira em volta do eixo do fio
-      [x, z] = [x * cg - z * sg, x * sg + z * cg];   // gira o conjunto
+    const inc = fio.a + 0.12 * Math.sin(t / (2600 / fio.v) + fio.f);
+    const ci = Math.cos(inc), si = Math.sin(inc);
+    const gira = fio.b + fase * fio.v * 0.5, cg = Math.cos(gira), sg = Math.sin(gira);
+    const caminho = new Path2D();
+    let fx = 0, fy = 0;
+    const faisca = fio.faisca + t / (900 / fio.v);
+    for (let s = 0; s <= 80; s++) {
+      const th = (s / 80) * Math.PI * 2;
+      const r = fio.r * (1 + (0.035 + energia * 0.07) * Math.sin(fio.k * th + t / (650 / fio.v) + fio.f));
+      let x = Math.cos(th) * r, y = Math.sin(th) * r * ci;   // inclina (achata em y)
+      [x, y] = [x * cg - y * sg, x * sg + y * cg];           // gira em volta do centro
       const px = C + x * R, py = C + y * R;
-      s ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      s ? caminho.lineTo(px, py) : caminho.moveTo(px, py);
+      if (Math.abs(((th - faisca) % 6.283 + 6.283) % 6.283) < 0.08) { fx = px; fy = py; }
     }
-    ctx.strokeStyle = cor(0.10 + energia * 0.22);
-    ctx.lineWidth = fio.larg * 1.6;
-    ctx.stroke();
+    // brilho largo e fraco por baixo, fio fino e forte por cima
+    ctx.strokeStyle = cor(0.05 + energia * 0.05); ctx.lineWidth = fio.larg * 7; ctx.stroke(caminho);
+    ctx.strokeStyle = cor(0.22 + energia * 0.28); ctx.lineWidth = fio.larg * 1.3; ctx.stroke(caminho);
+    if (fx) pontos.push([fx, fy]);
+  }
+  for (const [x, y] of pontos) {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, 14);
+    g.addColorStop(0, "rgba(220,245,255,0.9)"); g.addColorStop(1, cor(0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalCompositeOperation = "source-over";
-  // núcleo
-  const nucleo = ctx.createRadialGradient(C, C, 0, C, C, R * 0.6);
-  nucleo.addColorStop(0, cor(0.30 + energia * 0.35)); nucleo.addColorStop(1, cor(0));
-  ctx.fillStyle = nucleo; ctx.beginPath(); ctx.arc(C, C, R * 0.6, 0, Math.PI * 2); ctx.fill();
+  // o centro fica mais escuro: a luz está na casca, como no vídeo
+  const miolo = ctx.createRadialGradient(C, C, 0, C, C, R * 0.8);
+  miolo.addColorStop(0, "rgba(4,12,32,0.55)"); miolo.addColorStop(1, "rgba(4,12,32,0)");
+  ctx.fillStyle = miolo; ctx.beginPath(); ctx.arc(C, C, R * 0.8, 0, Math.PI * 2); ctx.fill();
   requestAnimationFrame(quadro);
 }
 requestAnimationFrame(quadro);
