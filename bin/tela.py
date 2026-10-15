@@ -251,8 +251,17 @@ def demo():
     os.makedirs(JV, exist_ok=True)
     open(PALCO, "w").close()
     try:
+        import math
+        import random
         for frase in DEMO:
             estado.marcar("falando", frase)
+            # sem áudio na demo: uma curva de volume com cara de fala (sílabas subindo e descendo,
+            # pausas entre palavras), para a esfera reagir como reage à voz de verdade
+            niveis = [round(max(0.0, min(1.0, 0.55 + 0.4 * math.sin(i / 2.2) * random.uniform(0.6, 1.0)
+                                          - (0.5 if i % 13 > 10 else 0))), 3) for i in range(60)]
+            with open(NIVEL_VOZ + ".tmp", "w") as f:
+                json.dump({"inicio": time.time(), "passo": 0.05, "niveis": niveis}, f)
+            os.replace(NIVEL_VOZ + ".tmp", NIVEL_VOZ)
             time.sleep(3)
     finally:
         os.remove(PALCO)

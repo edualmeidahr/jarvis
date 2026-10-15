@@ -64,8 +64,21 @@
   .topo { grid-area: topo; display: flex; align-items: flex-start; justify-content: space-between; }
   .relogio .hora { font-size: 54px; font-weight: 200; letter-spacing: 2px; font-variant-numeric: tabular-nums; }
   .relogio .data { color: var(--texto-2); margin-top: 2px; }
-  .marca { text-align: center; padding-top: 8px; }
-  .marca .nome { letter-spacing: 10px; font-weight: 600; font-size: 18px; color: var(--texto); }
+  .marca { text-align: center; padding-top: 4px; }
+  /* o nome: fino, espaçado, com degradê de branco para azul, brilho e um traço de cada lado */
+  .marca .nome { display: inline-flex; align-items: center; gap: 18px; }
+  .marca .nome b {
+    font-size: 30px; font-weight: 200; letter-spacing: 16px; margin-right: -16px;
+    background: linear-gradient(180deg, #ffffff 15%, #9fdcff 60%, #4aa8ff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 10px rgba(80, 180, 255, .55));
+  }
+  .marca .nome::before, .marca .nome::after {
+    content: ""; width: 90px; height: 1px; background: linear-gradient(90deg, transparent, var(--acento));
+    box-shadow: 0 0 6px var(--acento);
+  }
+  .marca .nome::after { background: linear-gradient(270deg, transparent, var(--acento)); }
+  .marca .sigla { font-family: var(--mono); font-size: 9px; letter-spacing: 4px; color: var(--texto-3); margin-top: 2px; text-transform: uppercase; }
   .marca .fala { font-family: var(--mono); font-size: 13px; letter-spacing: 6px; color: var(--acento); margin-top: 8px;
                  text-shadow: 0 0 10px var(--brilho); min-height: 16px; text-transform: uppercase; }
   .onda { display: flex; gap: 3px; justify-content: center; align-items: center; height: 14px; margin-top: 4px; }
@@ -94,7 +107,7 @@
   .cartao {
     position: relative; padding: 16px; border-radius: 14px;
     background: linear-gradient(160deg, var(--cartao-1), var(--cartao-2));
-    border: 1px solid var(--borda); backdrop-filter: blur(8px);
+    border: 1px solid var(--borda);
     box-shadow: inset 0 1px 0 rgba(150, 205, 255, .10), 0 8px 24px rgba(0, 0, 0, .25);
     transition: border-color .4s, box-shadow .4s, transform .4s, opacity .4s, filter .4s;
   }
@@ -178,8 +191,8 @@
   body.em-palco .rotulo-centro { visibility: hidden; }
   .heroi-slot { width: min(560px, 46vw); height: 230px; display: grid; align-items: end; }
   .doca { height: 128px; display: flex; gap: 12px; justify-content: center; align-items: flex-start; flex-wrap: nowrap; }
-  .heroi, .mini { background: linear-gradient(160deg, rgba(30, 70, 140, 0.50), rgba(8, 24, 56, 0.62));
-                  backdrop-filter: blur(5px); border-color: rgba(120, 200, 255, .45); }
+  /* sem backdrop-filter: com a esfera mexendo atrás, o desfoque era refeito a cada quadro (14 fps) */
+  .heroi, .mini { background: linear-gradient(160deg, rgba(30, 70, 140, 0.58), rgba(8, 24, 56, 0.72)); border-color: rgba(120, 200, 255, .45); }
   .heroi { grid-area: 1 / 1; padding: 16px 20px; max-height: 230px; overflow: hidden;
            box-shadow: 0 0 0 1px rgba(120, 200, 255, .35), 0 0 32px var(--brilho), 0 14px 40px rgba(0,0,0,.35); }
   .heroi .rotulos b { font-size: 20px; }
@@ -227,7 +240,9 @@
     .relogio .hora { font-size: 40px; }
     .relogio .data { font-size: 13px; }
     .marca { padding-top: 4px; }
-    .marca .nome { font-size: 15px; letter-spacing: 8px; }
+    .marca .nome b { font-size: 22px; letter-spacing: 12px; margin-right: -12px; }
+    .marca .nome::before, .marca .nome::after { width: 56px; }
+    .marca .sigla { font-size: 8px; letter-spacing: 3px; }
     .marca .fala { margin-top: 4px; }
     .situacao { padding-top: 4px; }
     .coluna { gap: 8px; }
@@ -265,7 +280,8 @@
   <header class="topo">
     <div class="relogio"><div class="hora" id="hora">--:--</div><div class="data" id="data"></div></div>
     <div class="marca">
-      <div class="nome">J.A.R.V.I.S</div>
+      <div class="nome"><b>J.A.R.V.I.S</b></div>
+      <div class="sigla">Just A Rather Very Intelligent System</div>
       <div class="fala" id="fala"></div>
       <div class="onda" id="onda"></div>
       <div class="contagem" id="contagem"></div>
@@ -626,98 +642,123 @@ function equalizador() {
 setInterval(equalizador, 80);
 
 // ------------------------------------------------------------------ a esfera
-// Fios de luz entrelaçados numa esfera, como uma bola de plasma. Cada fio é um círculo inclinado
-// que ondula; o conjunto gira. Parado respira devagar; ouvindo abre ondas; pensando gira rápido;
-// falando pulsa com a voz de verdade (nível do /nivel).
+// Fitas de luz formando uma casca, como no vídeo de referência. A voz manda: com ela as fitas
+// acendem, engrossam e ondulam mais, e o brilho corre pela casca em ondas; no silêncio a esfera
+// respira devagar. Desenho em duas camadas para ficar leve no vídeo integrado do notebook: o
+// brilho largo numa tela pequena ampliada (já sai suave) e o fio fino por cima.
 const cv = $("esfera"), ctx = cv.getContext("2d");
 const W = cv.width, C = W / 2;
-// a maioria dos fios fica quase de frente (vira um anel na borda), alguns inclinados atravessam
-const FIOS = Array.from({ length: 34 }, (_, i) => ({
-  a: i % 10 < 7 ? Math.random() * 0.5 : 0.5 + Math.random() * 1.1, // inclinação
-  b: Math.random() * Math.PI * 2,                                     // giro em volta do centro
-  r: 0.86 + Math.random() * 0.2,                                      // espessura da casca
-  k: 2 + Math.floor(Math.random() * 3), f: Math.random() * 6.28,     // ondulação
-  v: 0.3 + Math.random() * 0.9, larg: 0.8 + Math.random() * 1.6,
-  faisca: Math.random() * Math.PI * 2,                                // um ponto de luz correndo no fio
+const G = 300, ESC = G / W;                       // a camada de brilho, em 1/3 da resolução
+const brilho = document.createElement("canvas"); brilho.width = brilho.height = G;
+const gctx = brilho.getContext("2d");
+const faiscaImg = (() => {                        // o ponto de luz, desenhado uma vez só
+  const c = document.createElement("canvas"); c.width = c.height = 64;
+  const g = c.getContext("2d"), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, "rgba(235,250,255,1)"); r.addColorStop(0.25, "rgba(150,220,255,.55)"); r.addColorStop(1, "rgba(60,160,255,0)");
+  g.fillStyle = r; g.fillRect(0, 0, 64, 64); return c;
+})();
+// a maioria dos fios fica quase de frente (vira a casca na borda), alguns inclinados atravessam
+const FIOS = Array.from({ length: 30 }, (_, i) => ({
+  a: i % 10 < 7 ? Math.random() * 0.55 : 0.6 + Math.random() * 1.0,
+  b: Math.random() * Math.PI * 2, sentido: i % 2 ? 1 : -1,
+  r: 0.84 + Math.random() * 0.22,
+  k: 2 + Math.floor(Math.random() * 3), f: Math.random() * 6.28,
+  v: 0.5 + Math.random() * 1.0, larg: 0.8 + Math.random() * 1.4,
+  faisca: Math.random() * Math.PI * 2,
 }));
-const VEL = { parado: 0.25, ouvindo: 0.6, pensando: 1.8, falando: 0.9 };
-let fase = 0, energia = 0, ondas = [];
+const VEL = { parado: 0.35, ouvindo: 0.8, pensando: 2.0, falando: 1.2 };
+let fase = 0, energia = 0, pico = 0, ondas = [], ultimo = 0;
 
+let corAtual = "#3fa8ff";
 function cor(alpha) {
-  const hex = getComputedStyle(document.body).getPropertyValue("--acento").trim() || "#3fa8ff";
-  const n = parseInt(hex.slice(1), 16);
+  const n = parseInt(corAtual.slice(1), 16);
   return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
 
 function quadro(t) {
+  const dt = Math.min(50, t - (ultimo || t)); ultimo = t;
+  corAtual = getComputedStyle(document.body).getPropertyValue("--acento").trim() || "#3fa8ff";
   const reduzir = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const v = reduzir ? 0.05 : VEL[estado];
-  fase += 0.012 * v;
+  fase += 0.0011 * dt * (reduzir ? 0.05 : VEL[estado]);
+
+  // o quanto ela "acende": a voz de verdade quando há, senão uma respiração por estado
   const real = estado === "falando" ? nivelReal.voz : estado === "ouvindo" ? nivelReal.mic : null;
-  const alvo = real != null ? 0.2 + 0.8 * real
-             : estado === "falando" ? 0.55 + 0.45 * Math.abs(Math.sin(t / 110) * Math.sin(t / 47))
-             : estado === "ouvindo" ? 0.5 : estado === "pensando" ? 0.35 : 0.12 + 0.06 * Math.sin(t / 900);
-  energia += (alvo - energia) * (real != null ? 0.4 : 0.15);
+  const alvo = real != null ? 0.12 + 0.88 * real
+             : estado === "falando" ? 0.45 + 0.4 * Math.abs(Math.sin(t / 130) * Math.sin(t / 53))
+             : estado === "ouvindo" ? 0.4 : estado === "pensando" ? 0.3 + 0.1 * Math.sin(t / 200)
+             : 0.10 + 0.06 * Math.sin(t / 1100);
+  // sobe rápido e cai devagar, como uma luz que respira
+  energia += (alvo - energia) * (alvo > energia ? 0.45 : 0.08);
+  pico = Math.max(pico * 0.92, real != null && real > 0.7 ? real : 0);  // clarão nos picos da voz
   if (estado === "ouvindo" && !reduzir && (real != null ? real > 0.45 && Math.random() < 0.25 : Math.random() < 0.03)) ondas.push(0);
 
   ctx.clearRect(0, 0, W, W);
-  const halo = ctx.createRadialGradient(C, C, W * 0.05, C, C, W * 0.5);
-  halo.addColorStop(0, cor(0.20 + energia * 0.25));
+  const R = W * 0.36 * (1 + energia * 0.07);
+
+  // halo atrás da casca: mais forte com a voz
+  const halo = ctx.createRadialGradient(C, C, R * 0.55, C, C, R * 1.35);
+  halo.addColorStop(0, cor(0));
+  halo.addColorStop(0.55, cor(0.10 + energia * 0.22 + pico * 0.15));
   halo.addColorStop(1, cor(0));
-  ctx.fillStyle = halo;
-  ctx.fillRect(0, 0, W, W);
+  ctx.fillStyle = halo; ctx.fillRect(0, 0, W, W);
 
   ondas = ondas.filter((r) => r < 1);
   ondas.forEach((r, i) => {
-    ctx.beginPath(); ctx.arc(C, C, W * (0.3 + r * 0.18), 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(C, C, R * (1.05 + r * 0.25), 0, Math.PI * 2);
     ctx.strokeStyle = cor(0.45 * (1 - r)); ctx.lineWidth = 2; ctx.stroke();
     ondas[i] = r + 0.012;
   });
 
   // anel fino de fora, tracejado e girando
-  ctx.save(); ctx.translate(C, C); ctx.rotate(fase * 0.6); ctx.setLineDash([2, 10]);
+  ctx.save(); ctx.translate(C, C); ctx.rotate(fase * 0.4); ctx.setLineDash([2, 10]);
   ctx.beginPath(); ctx.arc(0, 0, W * 0.47, 0, Math.PI * 2);
-  ctx.strokeStyle = cor(0.22 + energia * 0.2); ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
-
+  ctx.strokeStyle = cor(0.18 + energia * 0.2); ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
   if (document.body.dataset.perto === "1") {  // reunião em 5 minutos: anel laranja pulsando
     ctx.beginPath(); ctx.arc(C, C, W * 0.49, 0, Math.PI * 2);
     ctx.strokeStyle = `rgba(255,138,76,${0.35 + 0.35 * Math.abs(Math.sin(t / 500))})`; ctx.lineWidth = 6; ctx.stroke();
   }
 
-  // os fios de luz: cada um é um círculo levemente inclinado que ondula e gira em volta do centro
-  const R = W * 0.36 * (1 + energia * 0.06);
+  // as fitas: cada uma é um círculo inclinado que ondula, gira e muda de inclinação
+  gctx.clearRect(0, 0, G, G);
+  gctx.globalCompositeOperation = "lighter";
   ctx.globalCompositeOperation = "lighter";
-  const pontos = [];
+  const amp = 0.025 + energia * 0.11;
+  const faiscas = [];
   for (const fio of FIOS) {
-    const inc = fio.a + 0.12 * Math.sin(t / (2600 / fio.v) + fio.f);
-    const ci = Math.cos(inc), si = Math.sin(inc);
-    const gira = fio.b + fase * fio.v * 0.5, cg = Math.cos(gira), sg = Math.sin(gira);
-    const caminho = new Path2D();
-    let fx = 0, fy = 0;
-    const faisca = fio.faisca + t / (900 / fio.v);
-    for (let s = 0; s <= 80; s++) {
-      const th = (s / 80) * Math.PI * 2;
-      const r = fio.r * (1 + (0.035 + energia * 0.07) * Math.sin(fio.k * th + t / (650 / fio.v) + fio.f));
-      let x = Math.cos(th) * r, y = Math.sin(th) * r * ci;   // inclina (achata em y)
-      [x, y] = [x * cg - y * sg, x * sg + y * cg];           // gira em volta do centro
+    const inc = fio.a + 0.3 * Math.sin(t * 0.00035 * fio.v + fio.f);
+    const ci = Math.cos(inc);
+    const gira = fio.b + fase * fio.v * fio.sentido, cg = Math.cos(gira), sg = Math.sin(gira);
+    const ond = t * 0.0016 * fio.v + fio.f;
+    const caminho = new Path2D(), fino = new Path2D();
+    const alvoFaisca = ((fio.faisca + t * 0.0011 * fio.v) % 6.2832 + 6.2832) % 6.2832;
+    let fx = null;
+    for (let s = 0; s <= 56; s++) {
+      const th = (s / 56) * 6.2832;
+      const r = fio.r * (1 + amp * Math.sin(fio.k * th + ond));
+      let x = Math.cos(th) * r, y = Math.sin(th) * r * ci;
+      [x, y] = [x * cg - y * sg, x * sg + y * cg];
       const px = C + x * R, py = C + y * R;
-      s ? caminho.lineTo(px, py) : caminho.moveTo(px, py);
-      if (Math.abs(((th - faisca) % 6.283 + 6.283) % 6.283) < 0.08) { fx = px; fy = py; }
+      if (s) { caminho.lineTo(px * ESC, py * ESC); fino.lineTo(px, py); } else { caminho.moveTo(px * ESC, py * ESC); fino.moveTo(px, py); }
+      if (fx === null && Math.abs(th - alvoFaisca) < 0.12) fx = [px, py];
     }
-    // brilho largo e fraco por baixo, fio fino e forte por cima
-    ctx.strokeStyle = cor(0.05 + energia * 0.05); ctx.lineWidth = fio.larg * 7; ctx.stroke(caminho);
-    ctx.strokeStyle = cor(0.22 + energia * 0.28); ctx.lineWidth = fio.larg * 1.3; ctx.stroke(caminho);
-    if (fx) pontos.push([fx, fy]);
+    // o brilho corre pela casca: cada fita acende e apaga um pouco fora de fase das outras
+    const onda = 0.55 + 0.45 * Math.sin(t * 0.0025 + fio.f * 3);
+    const luz = (0.10 + energia * 0.75 + pico * 0.3) * onda;
+    gctx.strokeStyle = cor(Math.min(1, luz * 0.55)); gctx.lineWidth = fio.larg * (1.6 + energia * 2.4); gctx.stroke(caminho);
+    ctx.strokeStyle = cor(Math.min(1, 0.16 + luz * 0.6)); ctx.lineWidth = fio.larg * (0.9 + energia * 0.9); ctx.stroke(fino);
+    if (fx) faiscas.push([fx[0], fx[1], luz]);
   }
-  for (const [x, y] of pontos) {
-    const g = ctx.createRadialGradient(x, y, 0, x, y, 14);
-    g.addColorStop(0, "rgba(220,245,255,0.9)"); g.addColorStop(1, cor(0));
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill();
+  ctx.drawImage(brilho, 0, 0, W, W);   // a camada de brilho ampliada: fica suave sozinha
+  for (const [x, y, luz] of faiscas) {
+    const tam = 10 + 26 * Math.min(1, luz);
+    ctx.globalAlpha = Math.min(1, 0.25 + luz);
+    ctx.drawImage(faiscaImg, x - tam / 2, y - tam / 2, tam, tam);
   }
+  ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "source-over";
-  // o centro fica mais escuro: a luz está na casca, como no vídeo
+  // o centro fica mais escuro: a luz está na casca
   const miolo = ctx.createRadialGradient(C, C, 0, C, C, R * 0.8);
-  miolo.addColorStop(0, "rgba(4,12,32,0.55)"); miolo.addColorStop(1, "rgba(4,12,32,0)");
+  miolo.addColorStop(0, "rgba(4,12,32,0.5)"); miolo.addColorStop(1, "rgba(4,12,32,0)");
   ctx.fillStyle = miolo; ctx.beginPath(); ctx.arc(C, C, R * 0.8, 0, Math.PI * 2); ctx.fill();
   requestAnimationFrame(quadro);
 }
