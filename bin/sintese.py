@@ -51,7 +51,9 @@ class PiperPython:
     def __init__(self):
         from piper import PiperVoice, SynthesisConfig
         self.voz = PiperVoice.load(falar.VOZ)
-        self.config = SynthesisConfig(length_scale=falar.VELOCIDADE * falar.TOM, noise_scale=float(falar.TIMBRE),
+        # com o timbre, o Piper fala TOM vezes mais curto e o tom mais grave devolve a duração
+        escala = falar.VELOCIDADE * (falar.TOM if falar.COM_TIMBRE else 1.0)
+        self.config = SynthesisConfig(length_scale=escala, noise_scale=float(falar.TIMBRE),
                                       noise_w_scale=float(falar.RITMO))
         self.pausa = float(falar.PAUSA)
 
@@ -94,7 +96,7 @@ class Piper:
         self.proc = subprocess.Popen(
             [falar.PIPER, "--model", falar.VOZ, "--json-input", "--output_dir", self.pasta,
              "--sentence_silence", falar.PAUSA, "--noise_w", falar.RITMO, "--noise_scale", falar.TIMBRE,
-             "--length_scale", f"{falar.VELOCIDADE * falar.TOM:.3f}"],
+             "--length_scale", f"{falar.VELOCIDADE * (falar.TOM if falar.COM_TIMBRE else 1.0):.3f}"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
 
     def sintetizar(self, texto, saida):
@@ -145,9 +147,11 @@ def servir():
                 cru = os.path.join(pasta, f"{time.time_ns()}-cru.wav")
                 with vez:
                     ok = piper.sintetizar(pedido["texto"], cru)
-                if ok:
+                if ok and falar.COM_TIMBRE:
                     aplicar_timbre(cru, pedido["saida"], bool(pedido.get("primeira")))
                     os.remove(cru)
+                elif ok:  # voz que já tem o timbre dela (JARVIS_VOZ=jarvis)
+                    os.replace(cru, pedido["saida"])
                 resposta = {"ok": ok}
             except Exception as e:  # uma frase ruim não derruba o serviço
                 resposta = {"ok": False, "erro": str(e)}

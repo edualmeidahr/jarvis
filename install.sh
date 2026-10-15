@@ -5,6 +5,7 @@
 #   ./install.sh links      só os links (os lugares de sempre passam a apontar para cá)
 #   ./install.sh trabalho   também liga os timers do GitLab e da agenda (precisa do local.env)
 #   ./install.sh spotify    o player do Spotify (spotifyd) e o serviço dele (precisa de Premium)
+#   ./install.sh deck       a página de botões para o celular (abre a porta 8766 na rede de casa)
 #
 # Nada aqui usa sudo. O que precisa de pacote do sistema fica listado no fim, para você.
 set -euo pipefail
@@ -39,7 +40,7 @@ links() {
   ligar "$REPO/bin" "$HOME/.claude/bin"
   ligar "$REPO/gnome/$GNOME_EXT" "$HOME/.local/share/gnome-shell/extensions/$GNOME_EXT"
   ligar "$REPO/chrome" "$DADOS/extensao"
-  for f in "$REPO"/config/*.txt "$REPO"/config/menu.json; do
+  for f in "$REPO"/config/*.txt "$REPO"/config/menu.json "$REPO"/config/deck.json; do
     ligar "$f" "$HOME/.config/jarvis/$(basename "$f")"
   done
   ligar "$REPO/config/pipewire" "$HOME/.config/jarvis/pipewire"
@@ -194,6 +195,13 @@ spotify() {
   FALTA+=("Spotify: criar um app em developer.spotify.com (redirect http://127.0.0.1:8899/callback), pôr o Client ID em JARVIS_SPOTIFY_CLIENT_ID e JARVIS_MUSICA=spotify no local.env, e rodar ~/.claude/bin/spotify.py configurar")
 }
 
+deck() {
+  passo "Deck (botões no celular)"
+  # opcional: é o único serviço que escuta na rede, e não só em 127.0.0.1
+  systemctl --user enable --now jarvis-deck.service
+  FALTA+=("Deck: com o celular no mesmo Wi-Fi, rode ~/.claude/bin/deck.py qr e leia o QR com a câmera")
+}
+
 conferir_sistema() {
   for prog in wl-copy secret-tool pw-record notify-send gtk-launch claude; do
     command -v "$prog" >/dev/null || FALTA+=("instalar $prog")
@@ -211,6 +219,7 @@ case "${1:-tudo}" in
   links) links ;;
   trabalho) links; trabalho; resumo ;;
   spotify) links; spotify; resumo ;;
+  deck) links; deck; resumo ;;
   tudo) links; python_venv; voz; whisper; gnome; servicos; conferir_sistema; resumo ;;
-  *) sed -n '2,9p' "$0"; exit 1 ;;
+  *) sed -n '2,10p' "$0"; exit 1 ;;
 esac

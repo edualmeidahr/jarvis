@@ -1,0 +1,22 @@
+[
+  {"secao": "Música", "botoes": [
+    {"rotulo": "Anterior", "icone": "⏮", "comando": ["python3", "~/.claude/bin/acao.py", "midia", "anterior"]},
+    {"rotulo": "Play / pause", "icone": "⏯", "comando": ["python3", "~/.claude/bin/acao.py", "midia", "alternar"]},
+    {"rotulo": "Próxima", "icone": "⏭", "comando": ["python3", "~/.claude/bin/acao.py", "midia", "proxima"]}
+  ]},
+  {"secao": "Modos", "botoes": [
+    {"rotulo": "Reunião", "icone": "📞", "estado": "modo-reuniao", "destaque": "reuniao-agora", "comando": ["python3", "~/.claude/bin/modo.py", "reuniao"]},
+    {"rotulo": "Microfone", "icone": "🎤", "estado": "microfone-mudo", "comando": ["python3", "~/.claude/bin/deck.py", "microfone"]},
+    {"rotulo": "Foco 25 min", "icone": "🎯", "estado": "modo-foco", "comando": ["python3", "~/.claude/bin/modo.py", "foco", "25"]}
+  ]},
+  {"secao": "Trabalho", "botoes": [
+    {"rotulo": "Atualizar GitLab", "icone": "🔄", "comando": ["~/.claude/bin/atualiza.sh"]},
+    {"rotulo": "GitLab", "icone": "🦊", "comando": ["python3", "~/.claude/bin/acao.py", "abrir", "gitlab"]},
+    {"rotulo": "Obsidian", "icone": "📓", "comando": ["python3", "~/.claude/bin/acao.py", "abrir", "obsidian"]}
+  ]},
+  {"secao": "Jarvis", "botoes": [
+    {"rotulo": "Pedir ao Jarvis", "icone": "💬", "tipo": "pedir"},
+    {"rotulo": "Ei Jarvis", "icone": "🎙", "estado": "escuta", "comando": ["~/.claude/bin/escuta-alterna.sh"]},
+    {"rotulo": "Bom dia", "icone": "🌅", "comando": ["python3", "~/.claude/bin/jarvis.py", "Jarvis, bom dia"]}
+  ]}
+]

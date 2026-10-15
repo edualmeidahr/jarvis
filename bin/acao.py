@@ -6,7 +6,7 @@
     acao.py tocar <busca> no youtube music   no YouTube Music, no app dele
     acao.py tocar <busca> no youtube    primeiro vídeo do YouTube, no app do YouTube
     acao.py url <https://...>       abre um endereço no navegador (só http/https)
-    acao.py midia pausar|continuar|proxima|anterior|inicio
+    acao.py midia pausar|continuar|alternar|proxima|anterior|inicio
     acao.py agora                   o que está tocando (ou pausado), e onde
     acao.py volume mais|menos|muito mais|muito menos|maximo|minimo|metade|mudo|<0-10 ou %>
                                     (com o Spotify tocando, o dele; "volume sistema ..." força o do computador)
@@ -580,17 +580,31 @@ def _pular_no_spotify(o_que):
         return False
 
 
+def com_status_real(e):
+    """O MPRIS do spotifyd às vezes fica segundos no estado velho (em 14/10, "Playing" depois de
+    pausar): "continua" respondia "já está tocando" e não tocava. Para ele, vale a Web API."""
+    if e and ".spotifyd." in e["player"]:
+        api = spotify_pela_api()
+        if api:
+            e["status"] = api["status"]
+    return e
+
+
 def midia(o_que):
     """Age só no player que está tocando (ou no pausado), e diz o que ficou tocando.
 
     Pegadinha do Chrome: ele mostra ao sistema UMA sessão de mídia só — a última que pediu
     áudio —, mesmo com várias tocando. Dá play e pause num podcast no YouTube e o YouTube
     Music, que segue tocando, some do controle. Nesse caso, avisa em vez de fingir que pausou."""
+    e = tocando()
+    if o_que in ("pausar", "continuar", "alternar"):
+        e = com_status_real(e)
+    if o_que == "alternar":  # o botão único de play/pause do deck
+        o_que = "pausar" if e and e["status"] == "Playing" else "continuar"
     if o_que not in METODOS:
         return None
     metodo, frase = METODOS[o_que]
-    e = tocando()
-    if not e:
+    if not e or (e["status"] == "Stopped" and not e["titulo"]):  # aba do Chrome que já não toca nada
         return "Não tem nada tocando agora."
     p = e["player"]
     if p == "trilha":  # arquivo: não tem pausa nem próxima; qualquer um desses para a trilha

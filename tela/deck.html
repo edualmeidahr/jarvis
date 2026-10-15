@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050b16">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Jarvis Deck</title>
+<style>
+  /* O deck do Jarvis, para o celular. Servido por bin/deck.py; os botões vêm de /botoes
+     (config/deck.json) e o resto de /estado. Mesmas cores da tela do Jarvis.
+     Tudo cabe na tela, em pé ou deitado, sem rolar: encaixar() escolhe a grade que deixa os
+     botões maiores e põe o tamanho em --tam, de onde saem ícone e texto. */
+  :root {
+    --fundo: #050b16;
+    --fundo-2: #0a1528;
+    --cartao: rgba(14, 32, 58, 0.72);
+    --borda: rgba(110, 190, 255, 0.16);
+    --texto: #e6f1ff;
+    --texto-2: #9fb6d1;
+    --texto-3: #5f7795;
+    --acento: #4fb3ff;
+    --ok: #36d39a;
+    --erro: #ff6b6b;
+    --vao: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    height: 100dvh; overflow: hidden; display: flex; flex-direction: column; gap: 12px;
+    background: radial-gradient(ellipse at 50% 0%, var(--fundo-2) 0%, var(--fundo) 70%);
+    color: var(--texto);
+    font: 15px/1.35 "Inter", "Roboto", system-ui, sans-serif;
+    padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    user-select: none;
+  }
+
+  /* topo, em pé: marca e hora; o que toca; reunião e volume */
+  .topo {
+    flex: none; display: grid; gap: 8px 10px; align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "marca hora" "tocando tocando" "baixo baixo";
+  }
+  .baixo { grid-area: baixo; display: flex; gap: 10px; min-width: 0; }
+  .baixo .reuniao { flex: 1; }
+  .baixo .volume { flex: 1.4; }
+  .marca { grid-area: marca; white-space: nowrap; letter-spacing: 6px; font-weight: 300; font-size: 14px; color: var(--texto-2); }
+  .marca b { color: var(--texto); font-weight: 600; }
+  .hora { grid-area: hora; justify-self: end; font-size: 28px; font-weight: 200; font-variant-numeric: tabular-nums; line-height: 1; }
+
+  .pilula {
+    display: flex; align-items: center; gap: 10px; min-width: 0; height: 42px; padding: 0 14px;
+    border: 1px solid var(--borda); border-radius: 12px; background: var(--cartao);
+    color: var(--texto-2); font-size: 14px;
+  }
+  .pilula span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tocando { grid-area: tocando; }
+  .tocando i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--texto-3); }
+  .tocando.ativo i { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .reuniao { grid-area: reuniao; min-width: 0; }
+  .reuniao.agora { border-color: var(--ok); color: var(--texto); }
+  .volume { grid-area: volume; min-width: 0; gap: 6px; padding-left: 4px; }
+  /* o alto-falante da barra liga e desliga o mudo; mudo, fica vermelho */
+  .mudo {
+    flex: none; width: 36px; height: 36px; border: 0; border-radius: 10px; background: transparent;
+    color: var(--texto-2); font-size: 18px;
+  }
+  .mudo.ligado { color: var(--erro); background: rgba(255, 107, 107, .12); }
+  .volume.mudo-ligado input { opacity: .35; }
+  .volume b { flex: none; width: 36px; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; }
+  input[type=range] {
+    flex: 1; min-width: 0; height: 28px; background: transparent; -webkit-appearance: none; appearance: none;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 4px; border-radius: 2px;
+    background: linear-gradient(to right, var(--acento) var(--p, 50%), rgba(110, 190, 255, .18) var(--p, 50%));
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 22px; height: 22px; margin-top: -9px; border-radius: 50%;
+    background: var(--texto); box-shadow: 0 0 10px rgba(79, 179, 255, .5);
+  }
+
+  /* deitado: tudo numa linha só, e a marca sai para sobrar altura para os botões */
+  @media (orientation: landscape) {
+    body { gap: 10px; }
+    .topo { grid-template-columns: auto minmax(0, 1fr) minmax(0, auto) auto; grid-template-areas: "hora tocando reuniao volume"; }
+    .marca { display: none; }
+    .hora { font-size: 24px; }
+    .baixo { display: contents; }
+    .reuniao { max-width: 240px; }
+    .baixo .volume { width: 210px; }
+  }
+
+  /* botões */
+  #secoes { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; }
+  @media (orientation: landscape) { #secoes { flex-direction: row; } }
+  .secao { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  h2 {
+    flex: none; height: 18px; font-size: 11px; font-weight: 600; letter-spacing: 2.2px;
+    text-transform: uppercase; color: var(--texto-3); margin-left: 2px;
+  }
+  .grade { display: grid; gap: var(--vao); min-height: 0; }
+  @media (orientation: landscape) { .grade { flex: 1; } }
+
+  button {
+    position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: calc(var(--tam, 100px) * .06); padding: 6px;
+    border-radius: 16px; border: 1px solid var(--borda); background: var(--cartao); color: var(--texto);
+    font: inherit; cursor: pointer; transition: transform .08s, border-color .3s, box-shadow .3s;
+  }
+  button:active { transform: scale(.94); }
+  button .icone { font-size: clamp(22px, calc(var(--tam, 100px) * .32), 44px); line-height: 1; }
+  button .rotulo {
+    font-size: clamp(11px, calc(var(--tam, 100px) * .12), 15px); text-align: center; color: var(--texto-2);
+    line-height: 1.2;
+  }
+  button.rodando { border-color: var(--acento); box-shadow: 0 0 14px rgba(79, 179, 255, .35); }
+  button.ok { border-color: var(--ok); box-shadow: 0 0 14px rgba(54, 211, 154, .35); }
+  button.erro { border-color: var(--erro); box-shadow: 0 0 14px rgba(255, 107, 107, .35); }
+
+  /* botão com estado: o ponto no canto acende. Verde é "ligado"; vermelho é "mudo" */
+  button[data-estado]::after {
+    content: ""; position: absolute; top: 9px; right: 9px; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--texto-3);
+  }
+  button.ligado::after { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  button[data-estado$="-mudo"].ligado::after { background: var(--erro); box-shadow: 0 0 8px var(--erro); }
+  button[data-estado$="-mudo"].ligado { border-color: rgba(255, 107, 107, .5); }
+  button.aceso { border-color: var(--ok); box-shadow: 0 0 16px rgba(54, 211, 154, .3); }
+  /* botão bem mais largo que alto (deitado): ícone ao lado do texto */
+  #secoes.largos button { flex-direction: row; gap: 12px; }
+  #secoes.largos button .rotulo { text-align: left; }
+
+  /* conversa com o Jarvis: cobre a tela; aqui rolar é normal */
+  .conversa {
+    position: fixed; inset: 0; z-index: 10; display: none; flex-direction: column; gap: 10px;
+    background: var(--fundo); height: 100dvh;
+    padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  .conversa.aberta { display: flex; }
+  .conversa header { flex: none; display: flex; align-items: center; gap: 10px; }
+  .conversa header b { font-weight: 600; letter-spacing: 4px; font-size: 14px; }
+  .conversa header span { color: var(--texto-3); font-size: 13px; flex: 1; }
+  .conversa header i {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--acento); box-shadow: 0 0 8px var(--acento);
+  }
+  .conversa header i.ouvindo { background: #2f8cff; box-shadow: 0 0 8px #2f8cff; }
+  .conversa header i.pensando { background: #f2b33d; box-shadow: 0 0 8px #f2b33d; }
+  .conversa header i.falando { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .fechar {
+    width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--borda); background: var(--cartao);
+    color: var(--texto-2); font-size: 18px;
+  }
+  .trocas { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+  .vazio { color: var(--texto-3); text-align: center; margin: auto 0; font-size: 14px; }
+  .fala {
+    max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 15px; line-height: 1.4;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .fala.voce { align-self: flex-end; background: rgba(79, 179, 255, .18); border-bottom-right-radius: 4px; }
+  .fala.jarvis { align-self: flex-start; background: var(--cartao); border: 1px solid var(--borda); border-bottom-left-radius: 4px; }
+  .fala.erro { border-color: var(--erro); }
+  .fala.pensando { color: var(--texto-3); }
+  .sugestoes { flex: none; display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .sugestoes::-webkit-scrollbar { display: none; }
+  .sugestoes button {
+    flex: none; min-width: 0; padding: 8px 12px; border-radius: 999px; font-size: 13px; color: var(--texto-2);
+    flex-direction: row;
+  }
+  .pedir { flex: none; display: flex; gap: 8px; }
+  .pedir input {
+    flex: 1; min-width: 0; height: 48px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--borda);
+    background: var(--cartao); color: var(--texto); font: inherit; font-size: 16px; outline: none;
+  }
+  .pedir input:focus { border-color: var(--acento); }
+  .pedir button { width: 64px; height: 48px; flex-direction: row; font-size: 20px; padding: 0; }
+
+  .aviso {
+    position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); width: min(520px, calc(100% - 32px));
+    padding: 12px 16px; border-radius: 12px; background: #0e203a; border: 1px solid var(--borda);
+    color: var(--texto); font-size: 14px; opacity: 0; transform: translate(-50%, 10px);
+    transition: opacity .2s, transform .2s; pointer-events: none;
+  }
+  .aviso.visivel { opacity: 1; transform: translate(-50%, 0); }
+  .aviso.erro { border-color: var(--erro); }
+  .fora { color: var(--erro); }
+</style>
+</head>
+<body>
+  <header class="topo">
+    <div class="marca"><b>J.A.R.V.I.S</b> deck</div>
+    <div class="hora" id="hora">--:--</div>
+    <div class="pilula tocando" id="tocando"><i></i><span>…</span></div>
+    <div class="baixo">
+    <div class="pilula reuniao" id="reuniao"><span>…</span></div>
+    <label class="pilula volume" id="volume-pilula" aria-label="Volume do computador">
+      <button class="mudo" id="mudo" aria-label="Mudo">🔊</button>
+      <input type="range" id="volume" min="0" max="100" step="1">
+      <b id="volume-n">–</b>
+    </label>
+    </div>
+  </header>
+  <main id="secoes"></main>
+  <div class="aviso" id="aviso"></div>
+
+  <section class="conversa" id="conversa" aria-label="Conversa com o Jarvis">
+    <header>
+      <i id="jv-ponto"></i><b>JARVIS</b><span id="jv-estado">parado</span>
+      <button class="fechar" id="fechar" aria-label="Fechar">✕</button>
+    </header>
+    <div class="trocas" id="trocas"></div>
+    <div class="sugestoes" id="sugestoes"></div>
+    <form class="pedir" id="form-pedir">
+      <input id="pedido" placeholder="Peça algo (o 🎤 do teclado dita)" autocomplete="off" enterkeyhint="send" maxlength="500">
+      <button aria-label="Enviar">➤</button>
+    </form>
+  </section>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let versao = null;
+  let timerAviso = null;
+  let mexendoVolume = 0; // até quando o servidor não pode sobrescrever a barra (o dedo está nela)
+
+  function aviso(texto, erro) {
+    const a = $("aviso");
+    a.textContent = texto;
+    a.classList.toggle("erro", !!erro);
+    a.classList.add("visivel");
+    clearTimeout(timerAviso);
+    timerAviso = setTimeout(() => a.classList.remove("visivel"), 3500);
+  }
+
+  function desenhar(dado) {
+    const main = $("secoes");
+    main.replaceChildren();
+    if (dado.erro) {
+      const p = document.createElement("p");
+      p.className = "fora";
+      p.textContent = dado.erro;
+      main.append(p);
+    }
+    for (const s of dado.secoes) {
+      const sec = document.createElement("section");
+      sec.className = "secao";
+      sec.dataset.n = s.botoes.length;
+      const h = document.createElement("h2");
+      h.textContent = s.secao;
+      const grade = document.createElement("div");
+      grade.className = "grade";
+      for (const b of s.botoes) {
+        const el = document.createElement("button");
+        el.innerHTML = `<span class="icone"></span><span class="rotulo"></span>`;
+        el.querySelector(".icone").textContent = b.icone;
+        el.querySelector(".rotulo").textContent = b.rotulo;
+        el.dataset.rotulo = b.rotulo;
+        if (b.estado) el.dataset.estado = b.estado;
+        if (b.destaque) el.dataset.destaque = b.destaque;
+        el.addEventListener("click", () => (b.tipo === "pedir" ? abrirConversa() : apertar(b.id, el)));
+        grade.append(el);
+      }
+      sec.append(h, grade);
+      main.append(sec);
+    }
+    encaixar();
+  }
+
+  /* Escolhe a grade que deixa o MENOR lado do botão o maior possível.
+     Deitado: seções lado a lado, todas com as mesmas linhas (1 a 4).
+     Em pé: seções empilhadas, todas com as mesmas colunas (2 a 5). */
+  function encaixar() {
+    const main = $("secoes");
+    const secs = [...main.querySelectorAll(".secao")];
+    if (!secs.length) return;
+    const ns = secs.map((s) => +s.dataset.n);
+    const W = main.clientWidth, H = main.clientHeight;
+    const vao = 10, entreSecoes = 14, rotulo = 18;
+    const deitado = innerWidth > innerHeight;
+    let melhor = null;
+    if (deitado) {
+      for (let r = 1; r <= 4; r++) {
+        const cols = ns.map((n) => Math.ceil(n / r));
+        const total = cols.reduce((a, b) => a + b, 0);
+        const w = (W - vao * (total - secs.length) - entreSecoes * (secs.length - 1)) / total;
+        const h = (H - rotulo - vao * (r - 1)) / r;
+        const buracos = ns.reduce((a, n, i) => a + cols[i] * r - n, 0);
+        const nota = Math.min(w, h) - 6 * buracos; // grade com buraco só ganha se for bem maior
+        if (!melhor || nota > melhor.nota) melhor = { nota, r, cols, w, h };
+      }
+      secs.forEach((s, i) => {
+        const g = s.querySelector(".grade");
+        s.style.flex = `${melhor.cols[i]} 1 0`;
+        g.style.gridTemplateColumns = `repeat(${melhor.cols[i]}, 1fr)`;
+        g.style.gridTemplateRows = `repeat(${melhor.r}, 1fr)`;
+      });
+    } else {
+      for (let c = 2; c <= 5; c++) {
+        const linhas = ns.map((n) => Math.ceil(n / c));
+        const total = linhas.reduce((a, b) => a + b, 0);
+        const w = (W - vao * (c - 1)) / c;
+        const h = (H - secs.length * rotulo - vao * (total - secs.length) - entreSecoes * (secs.length - 1)) / total;
+        const buracos = ns.reduce((a, n, i) => a + linhas[i] * c - n, 0);
+        const nota = Math.min(w, h) - 6 * buracos;
+        if (!melhor || nota > melhor.nota) melhor = { nota, c, linhas, w, h };
+      }
+      // botão mais alto que largo fica estranho: a altura para no quadrado (um pouco mais)
+      const alt = Math.min(melhor.h, melhor.w * 1.1);
+      secs.forEach((s, i) => {
+        const g = s.querySelector(".grade");
+        s.style.flex = "none";
+        g.style.gridTemplateColumns = `repeat(${melhor.c}, 1fr)`;
+        g.style.gridTemplateRows = `repeat(${melhor.linhas[i]}, ${Math.floor(alt)}px)`;
+      });
+      melhor.h = alt;
+    }
+    main.style.setProperty("--tam", `${Math.floor(Math.min(melhor.w, melhor.h))}px`);
+    main.classList.toggle("largos", melhor.w > melhor.h * 1.7);
+  }
+
+  async function apertar(id, el) {
+    navigator.vibrate?.(15);
+    // tela cheia no primeiro toque: o Android só deixa a partir de um gesto
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+    el.classList.remove("ok", "erro");
+    el.classList.add("rodando");
+    try {
+      const r = await fetch(`/botao/${id}`, { method: "POST" });
+      if (r.status === 403) throw new Error("Sem chave: leia o QR de novo (deck.py qr).");
+      const d = await r.json();
+      el.classList.add(d.ok ? "ok" : "erro");
+      aviso(d.saida, !d.ok);
+      if (!d.ok) navigator.vibrate?.([30, 60, 30]);
+    } catch (e) {
+      el.classList.add("erro");
+      aviso(e.message.startsWith("Sem chave") ? e.message : "Sem resposta do computador.", true);
+    }
+    el.classList.remove("rodando");
+    setTimeout(() => el.classList.remove("ok", "erro"), 1200);
+    atualizar();
+  }
+
+  function mostrarVolume(n) {
+    const v = $("volume");
+    v.value = n;
+    v.style.setProperty("--p", `${n}%`);
+    $("volume-n").textContent = `${n}%`;
+  }
+
+  $("volume").addEventListener("input", (e) => {
+    mexendoVolume = Date.now() + 2000;
+    mostrarVolume(e.target.value);
+  });
+  $("volume").addEventListener("change", async (e) => {
+    mexendoVolume = Date.now() + 2000;
+    navigator.vibrate?.(10);
+    try { await fetch(`/volume/${e.target.value}`, { method: "POST" }); } catch { aviso("Sem resposta do computador.", true); }
+  });
+
+  function mostrarMudo(m) {
+    $("mudo").classList.toggle("ligado", m);
+    $("mudo").textContent = m ? "🔇" : "🔊";
+    $("volume-pilula").classList.toggle("mudo-ligado", m);
+  }
+
+  $("mudo").addEventListener("click", async (e) => {
+    e.preventDefault(); // está dentro do label: sem isto o toque ia parar na barra
+    navigator.vibrate?.(15);
+    try {
+      const d = await (await fetch("/mudo", { method: "POST" })).json();
+      mostrarMudo(d.saida.startsWith("Som desligado"));
+      aviso(d.saida);
+    } catch { aviso("Sem resposta do computador.", true); }
+  });
+
+  async function atualizar() {
+    try {
+      const [b, e] = await Promise.all([fetch("/botoes"), fetch("/estado")]);
+      if (b.status === 403) {
+        $("tocando").innerHTML = `<i></i><span class="fora">Sem chave: no computador, rode deck.py qr</span>`;
+        return;
+      }
+      const botoes = await b.json();
+      if (botoes.versao !== versao) { versao = botoes.versao; desenhar(botoes); }
+      const est = await e.json();
+
+      const t = $("tocando");
+      t.classList.toggle("ativo", est.tocando.startsWith("Está tocando"));
+      t.querySelector("span").textContent = est.tocando || "…";
+
+      const r = $("reuniao");
+      const ru = est.reuniao;
+      r.classList.toggle("agora", !!ru?.agora);
+      r.querySelector("span").textContent = !ru ? "Agenda livre"
+        : ru.agora ? `Agora: ${ru.titulo}` : `${ru.hora} ${ru.titulo}`;
+
+      if (est.volume != null && Date.now() > mexendoVolume) mostrarVolume(est.volume);
+      mostrarMudo(!!est.mudo);
+
+      document.querySelectorAll("button[data-estado]")
+        .forEach((el) => el.classList.toggle("ligado", !!est.estados[el.dataset.estado]));
+      document.querySelectorAll("button[data-destaque]")
+        .forEach((el) => el.classList.toggle("aceso", !!est.estados[el.dataset.destaque]));
+      modo = est.modo;
+      contagem();
+      jarvisAgora(est.jarvis, est.pedindo);
+    } catch {
+      $("tocando").classList.remove("ativo");
+      $("tocando").querySelector("span").textContent = "Computador fora do alcance";
+    }
+  }
+
+  /* o botão do foco troca o rótulo pelo tempo que falta */
+  let modo = null;
+  function contagem() {
+    document.querySelectorAll('button[data-estado="modo-foco"]').forEach((el) => {
+      const r = el.querySelector(".rotulo");
+      if (modo?.modo === "foco" && modo.ate) {
+        const falta = Math.max(0, Math.round(modo.ate - Date.now() / 1000));
+        r.textContent = `Foco · ${Math.floor(falta / 60)}:${String(falta % 60).padStart(2, "0")}`;
+      } else {
+        r.textContent = el.dataset.rotulo;
+      }
+    });
+  }
+
+  /* ---------------------------------------------------------------- conversa com o Jarvis */
+  const SUGESTOES = [
+    ["O que temos pra hoje?", true],
+    ["Próxima reunião", true],
+    ["Me lembra em 20 minutos de ", false],
+    ["Cria uma tarefa para ", false],
+    ["Toca lofi", true],
+  ];
+  let esperando = false;
+
+  function fala(quem, texto, extra) {
+    const d = document.createElement("div");
+    d.className = `fala ${quem} ${extra || ""}`;
+    d.textContent = texto;
+    $("trocas").append(d);
+    $("trocas").scrollTop = $("trocas").scrollHeight;
+    return d;
+  }
+
+  async function abrirConversa() {
+    navigator.vibrate?.(15);
+    $("conversa").classList.add("aberta");
+    if (!esperando) {
+      $("trocas").replaceChildren();
+      try {
+        const trocas = await (await fetch("/conversa")).json();
+        for (const t of trocas) { fala("voce", t.voce); fala("jarvis", t.jarvis); }
+        if (!trocas.length) {
+          const v = document.createElement("p");
+          v.className = "vazio";
+          v.textContent = "Peça algo. A resposta aparece aqui e ele fala no computador.";
+          $("trocas").append(v);
+        }
+      } catch { aviso("Sem resposta do computador.", true); }
+    }
+    $("pedido").focus();
+  }
+
+  async function pedir(texto) {
+    texto = texto.trim();
+    if (!texto || esperando) return;
+    esperando = true;
+    $("trocas").querySelector(".vazio")?.remove();
+    fala("voce", texto);
+    const resposta = fala("jarvis", "Pensando…", "pensando");
+    $("pedido").value = "";
+    try {
+      const r = await fetch("/pedir", { method: "POST", headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ texto }) });
+      const d = await r.json();
+      resposta.textContent = d.resposta;
+      resposta.classList.remove("pensando");
+      resposta.classList.toggle("erro", !d.ok);
+    } catch {
+      resposta.textContent = "Sem resposta do computador.";
+      resposta.classList.replace("pensando", "erro");
+    }
+    $("trocas").scrollTop = $("trocas").scrollHeight;
+    esperando = false;
+  }
+
+  function jarvisAgora(estado, pedindo) {
+    const nomes = { parado: "parado", ouvindo: "ouvindo", pensando: "pensando", falando: "falando" };
+    const e = pedindo && estado === "parado" ? "pensando" : estado;
+    $("jv-ponto").className = e;
+    $("jv-estado").textContent = nomes[e] || e;
+  }
+
+  for (const [texto, direto] of SUGESTOES) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = texto.trim();
+    b.addEventListener("click", () => {
+      if (direto) return pedir(texto);
+      $("pedido").value = texto;
+      $("pedido").focus();
+    });
+    $("sugestoes").append(b);
+  }
+  $("form-pedir").addEventListener("submit", (e) => { e.preventDefault(); pedir($("pedido").value); });
+  $("fechar").addEventListener("click", () => { $("conversa").classList.remove("aberta"); $("pedido").blur(); });
+
+  function relogio() {
+    $("hora").textContent = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  // a chave veio no endereço (pelo QR) e já virou cookie: some da barra e do histórico
+  if (location.search.includes("chave=")) history.replaceState(null, "", "/" + location.hash);
+
+  // /#conversa abre direto na conversa (dá um atalho só dela na tela inicial do Android)
+  if (location.hash === "#conversa") abrirConversa();
+
+  new ResizeObserver(encaixar).observe($("secoes"));
+  relogio();
+  setInterval(relogio, 5000);
+  setInterval(contagem, 1000);
+  atualizar();
+  setInterval(atualizar, 2500);
+</script>
+</body>
+</html>

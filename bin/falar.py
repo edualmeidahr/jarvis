@@ -53,6 +53,21 @@ import importlib.util as _iu
 _spec_e = _iu.spec_from_file_location("estado", os.path.join(os.path.dirname(os.path.abspath(__file__)), "estado.py"))
 estado = _iu.module_from_spec(_spec_e)
 _spec_e.loader.exec_module(estado)  # o que o Jarvis está fazendo, para o ponto na barra do GNOME
+_spec_c = _iu.spec_from_file_location("config", os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.py"))
+config = _iu.module_from_spec(_spec_c)
+_spec_c.loader.exec_module(config)
+
+# Qual voz fala: JARVIS_VOZ no local.env. A "jarvis" é treinada nesta máquina (voz-treino/), não vai
+# para o repositório; sem o arquivo dela, volta a Faber. Cada voz tem a sua velocidade, e o timbre.py
+# (mais grave e encorpado) só serve à Faber: a "jarvis" já nasce com o timbre dela (ouvido em 14/10:
+# a preferida foi a crua, um pouco mais rápida e firme, sem o timbre)
+VOZES = {
+    "faber": (VOZ, VELOCIDADE, True),
+    "jarvis": (os.path.expanduser("~/.local/share/piper/vozes/pt_BR-jarvis-medium.onnx"), 0.95, False),
+}
+VOZ, VELOCIDADE, COM_TIMBRE = VOZES.get(config.get("JARVIS_VOZ", "faber").lower(), VOZES["faber"])
+if not os.path.exists(VOZ):
+    VOZ, VELOCIDADE, COM_TIMBRE = VOZES["faber"]
 
 FALANDO = os.path.join(os.environ.get("XDG_RUNTIME_DIR", tempfile.gettempdir()), "jarvis", "falando.pid")
 TRAVA = os.path.join(os.environ.get("XDG_RUNTIME_DIR", tempfile.gettempdir()), "jarvis-voz.lock")
@@ -196,7 +211,7 @@ CACHE_FALAS = os.path.expanduser("~/.cache/jarvis/falas")
 
 def _assinatura():
     """Muda quando a voz muda: frase guardada de uma voz antiga não pode tocar."""
-    partes = [VOZ, str(VELOCIDADE), PAUSA, RITMO, TIMBRE, str(TOM)]
+    partes = [VOZ, str(VELOCIDADE), PAUSA, RITMO, TIMBRE, str(TOM), str(COM_TIMBRE)]
     # ingles.py e ingles.txt: o jeito de falar inglês também muda o som (sintese.py)
     ingles = (os.path.join(os.path.dirname(os.path.abspath(__file__)), "ingles.py"),
               os.path.expanduser("~/.config/jarvis/ingles.txt"))
@@ -242,7 +257,7 @@ def _sintetizar(trecho, pasta, n, primeira):
             os.makedirs(CACHE_FALAS, exist_ok=True)
             shutil.copyfile(final, guardado)
         return final
-    com_timbre = os.path.exists(TIMBRE_PY) and os.access(VENV_PY, os.X_OK)
+    com_timbre = COM_TIMBRE and os.path.exists(TIMBRE_PY) and os.access(VENV_PY, os.X_OK)
     escala = VELOCIDADE * TOM if com_timbre else VELOCIDADE
     piper = [PIPER, "--model", VOZ, "--sentence_silence", PAUSA, "--noise_w", RITMO, "--noise_scale", TIMBRE,
              "--output_file", cru]
@@ -395,7 +410,7 @@ def tocar_fluxo(partes):
         fcntl.flock(trava, fcntl.LOCK_EX)  # fila: a segunda fala espera a primeira acabar
         with tempfile.NamedTemporaryFile(suffix=".wav", dir=os.path.dirname(TRAVA)) as wav, \
              tempfile.NamedTemporaryFile(suffix=".wav", dir=os.path.dirname(TRAVA)) as final:
-            com_timbre = os.path.exists(TIMBRE_PY) and os.access(VENV_PY, os.X_OK)
+            com_timbre = COM_TIMBRE and os.path.exists(TIMBRE_PY) and os.access(VENV_PY, os.X_OK)
             escala = VELOCIDADE * TOM if com_timbre else VELOCIDADE
             subprocess.run([PIPER, "--model", VOZ, "--length_scale", f"{escala:.3f}",
                             "--sentence_silence", PAUSA, "--noise_w", RITMO, "--noise_scale", TIMBRE,

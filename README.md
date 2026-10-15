@@ -16,6 +16,8 @@ Assistente de voz para o meu Linux (GNOME com Wayland). Roda quase tudo localmen
 - **Memória**: "lembra que…" guarda o fato numa nota do vault. Ele também lembra os últimos 5 minutos de conversa.
 - **Claude**: perguntas livres, busca na web, resumo da página aberta, "o que tem na minha tela?" e "traduz isso" (o texto selecionado).
 - **A tela**: "abre a tela" abre uma janela em tela cheia com a esfera no centro (a cor diz se ele está parado, ouvindo, pensando ou falando), relógio, cartões de clima, agenda, lembretes, trabalho, música e notícias, e a legenda da frase que ele está falando. O cartão do assunto acende enquanto ele fala dele. Servida pelo `jarvis-tela` em `http://127.0.0.1:8765`, só para esta máquina.
+- **O deck**: uma página de botões para o celular, tipo Stream Deck. Mostra o que está tocando, a próxima reunião e uma barra de volume com mudo. Tem botões de música, modos, mudo do microfone, GitLab, Obsidian e liga/desliga do "Ei Jarvis". "Pedir ao Jarvis" abre uma conversa: o texto (digitado ou ditado pelo teclado do celular) vai para ele como se fosse falado, e a resposta aparece no celular. `/#conversa` abre direto nela. Cabe inteira na tela, em pé ou deitado. Os botões ficam em `config/deck.json`, e a página se refaz sozinha quando o arquivo muda. Servido pelo `jarvis-deck` na porta 8766. É o único serviço que escuta na rede: pede uma chave (o celular lê um QR uma vez, com `deck.py qr`) e só atende a rede local, nunca a VPN.
+- **Modos** (`bin/modo.py`, também pelo deck): **reunião** liga o "não perturbe", liga o microfone, pausa a música e abre o Meet da reunião; desligar devolve tudo, inclusive a música. **Foco** liga o "não perturbe" por 25 minutos e avisa no fim. Com "não perturbe" o Jarvis não fala e o lembrete de reunião não aparece, então o foco acaba 2 minutos antes da próxima reunião.
 - **Ponto na barra do GNOME**: mostra se ele está parado, ouvindo, pensando ou falando.
 
 ## Peças
@@ -24,7 +26,7 @@ Assistente de voz para o meu Linux (GNOME com Wayland). Roda quase tudo localmen
 |---|---|---|
 | `bin/` | todos os scripts | `~/.claude/bin` (link) |
 | `gnome/` | extensão do ponto na barra | `~/.local/share/gnome-shell/extensions/` (link) |
-| `tela/` | a página da tela (esfera, cartões, legenda) | servida pelo `bin/tela.py` |
+| `tela/` | a página da tela (esfera, cartões, legenda) e a do deck | servidas pelo `bin/tela.py` e pelo `bin/deck.py` |
 | `chrome/` | extensão "Jarvis Música" (YouTube Music e leitura de página) | `~/.local/share/jarvis/extensao` (link) |
 | `systemd/` | escuta do "Ei Jarvis", microfone sem eco e timers do trabalho | `~/.config/systemd/user/` (link) |
 | `config/` | artistas (vocabulário do Whisper), pronúncia, o microfone sem eco (`pipewire/`) e o player do Spotify (`spotifyd/`) | `~/.config/jarvis/` (link) |
@@ -45,6 +47,7 @@ cd ~/projetos/jarvis
 ./install.sh            # links, Python, voz, Whisper, atalhos e o serviço do "Ei Jarvis"
 ./install.sh trabalho   # só na máquina do trabalho: timers do GitLab e da agenda
 ./install.sh spotify    # opcional, com Premium: o player do Spotify (spotifyd) e o login dele
+./install.sh deck       # opcional: a página de botões para o celular (porta 8766 na rede de casa)
 ```
 
 ### Spotify

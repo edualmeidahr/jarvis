@@ -1,0 +1,12 @@
+[Unit]
+Description=Jarvis — o deck (página de botões para o celular, na rede de casa)
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.claude/bin/deck.py
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
