@@ -133,10 +133,13 @@ def trechos(texto):
     return saida
 
 
-def marcar(texto):
-    """O texto com os trechos em inglês trocados por [[ fonemas ]] (sintaxe do piper-tts)."""
+def marcar(texto, a_partir=1):
+    """O texto com os trechos em inglês trocados por [[ fonemas ]] (sintaxe do piper-tts).
+    a_partir: só trechos com pelo menos tantas palavras; os menores a voz lê direto."""
     partes, fim = [], 0
     for a, b in trechos(texto):
+        if len(PALAVRA.findall(texto[a:b])) < a_partir:
+            continue
         partes.append(texto[fim:a])
         partes.append(f"[[ {fonemas_ingles(texto[a:b])} ]]")
         fim = b

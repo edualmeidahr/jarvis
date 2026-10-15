@@ -62,14 +62,18 @@ _spec_c.loader.exec_module(config)
 # Qual voz fala: JARVIS_VOZ no local.env. A "jarvis" é treinada nesta máquina (voz-treino/), não vai
 # para o repositório; sem o arquivo dela, volta a Faber. Cada voz tem a sua velocidade, e o timbre.py
 # (mais grave e encorpado) só serve à Faber: a "jarvis" já nasce com o timbre dela (ouvido em 14/10:
-# a preferida foi a crua, um pouco mais rápida e firme, sem o timbre)
+# a preferida foi a crua, um pouco mais rápida e firme, sem o timbre).
+# O último número é a partir de quantas palavras seguidas em inglês o ingles.py troca o trecho por
+# fonemas do inglês. A Faber precisa em tudo ("issue" saía "issu-e"). A "jarvis" aprendeu marcas e
+# palavras soltas com sotaque brasileiro no treino e fala melhor direto (Spotify, YouTube, Queen,
+# deploy); só título longo, com "to"/"the" no meio, ainda sai melhor em fonemas (Highway to Hell).
 VOZES = {
-    "faber": (VOZ, VELOCIDADE, True),
-    "jarvis": (os.path.expanduser("~/.local/share/piper/vozes/pt_BR-jarvis-medium.onnx"), 0.95, False),
+    "faber": (VOZ, VELOCIDADE, True, 1),
+    "jarvis": (os.path.expanduser("~/.local/share/piper/vozes/pt_BR-jarvis-medium.onnx"), 0.95, False, 3),
 }
-VOZ, VELOCIDADE, COM_TIMBRE = VOZES.get(config.get("JARVIS_VOZ", "faber").lower(), VOZES["faber"])
+VOZ, VELOCIDADE, COM_TIMBRE, INGLES_A_PARTIR = VOZES.get(config.get("JARVIS_VOZ", "faber").lower(), VOZES["faber"])
 if not os.path.exists(VOZ):
-    VOZ, VELOCIDADE, COM_TIMBRE = VOZES["faber"]
+    VOZ, VELOCIDADE, COM_TIMBRE, INGLES_A_PARTIR = VOZES["faber"]
 
 FALANDO = os.path.join(os.environ.get("XDG_RUNTIME_DIR", tempfile.gettempdir()), "jarvis", "falando.pid")
 TRAVA = os.path.join(os.environ.get("XDG_RUNTIME_DIR", tempfile.gettempdir()), "jarvis-voz.lock")
@@ -214,9 +218,10 @@ CACHE_FALAS = os.path.expanduser("~/.cache/jarvis/falas")
 def _assinatura():
     """Muda quando a voz muda: frase guardada de uma voz antiga não pode tocar."""
     partes = [VOZ, str(VELOCIDADE), PAUSA, RITMO, TIMBRE, str(TOM), str(COM_TIMBRE)]
-    # ingles.py e ingles.txt: o jeito de falar inglês também muda o som (sintese.py)
-    ingles = (os.path.join(os.path.dirname(os.path.abspath(__file__)), "ingles.py"),
-              os.path.expanduser("~/.config/jarvis/ingles.txt"))
+    # ingles.py e ingles.txt: o jeito de falar inglês também muda o som; e o sintese.py, que apara pausas
+    aqui = os.path.dirname(os.path.abspath(__file__))
+    ingles = (os.path.join(aqui, "ingles.py"), os.path.expanduser("~/.config/jarvis/ingles.txt"),
+              os.path.join(aqui, "sintese.py"))
     for f in (VOZ, TIMBRE_PY, DICIONARIO, *ingles):
         try:
             partes.append(str(os.path.getmtime(f)))

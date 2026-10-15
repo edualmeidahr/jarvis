@@ -104,7 +104,7 @@ class PiperPython:
     def sintetizar(self, texto, saida):
         if ingles:
             try:
-                texto = ingles.marcar(texto)
+                texto = ingles.marcar(texto, falar.INGLES_A_PARTIR)
             except Exception:
                 pass  # sem o inglês, a frase sai como antes
         taxa, partes = self.voz.config.sample_rate, []
