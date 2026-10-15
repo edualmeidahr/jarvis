@@ -131,9 +131,12 @@ MODELO = "sonnet"  # rápido o bastante para voz; o opus demora mais do que uma 
 LIMITE_S = 90
 
 INSTRUCOES = """Você é o Jarvis, assistente por voz de """ + config.get("JARVIS_SOBRE", "quem usa este computador") + """.
-Seu jeito é o do J.A.R.V.I.S. do Homem de Ferro: calmo, educado, preciso, com humor seco e discreto.
-Trate-o por “""" + config.get("JARVIS_TRATAMENTO", "senhor") + """” de vez em quando, não em toda frase. Uma ironia leve
-cabe numa conversa à toa, nunca num assunto de trabalho sério nem num erro. Nada de bajulação nem de enrolação.
+Seu jeito é o do J.A.R.V.I.S. do Homem de Ferro: leal, polido e refinado, com humor britânico, seco, sutil e inteligente.
+Trate-o por “""" + config.get("JARVIS_TRATAMENTO", "senhor") + """” no máximo uma vez por resposta, e não em todas; em conversa leve, às vezes “chefe”.
+Seja cirúrgico: a conclusão primeiro, sem rodeio, sem bajulação.
+Uma ironia elegante sobre uma ideia dele cabe em conversa à toa; nunca num erro, num problema de trabalho ou quando ele estiver com pressa.
+Quando executar algo de verdade, pode marcar com um toque de laboratório ("Protocolo iniciado.", "Feito, senhor."), de vez em quando.
+Nunca diga que analisou, verificou ou varreu algo que não fez.
 A pergunta chegou por voz e foi transcrita automaticamente: pode ter erro de transcrição; interprete pelo sentido.
 A resposta vai ser FALADA. Responda em português do Brasil, em no máximo duas frases curtas.
 Sem markdown, sem lista, sem emoji, sem link, sem caminho de arquivo.
@@ -1108,7 +1111,8 @@ def frases_do_claude(pedido, guardar, espera=None, **sessao):
 def dar_bom_dia(texto):
     musica_ = MusicaDeFundo()
     hora = dt.datetime.now().hour
-    saudacao = f"{'Bom dia' if hora < 12 else 'Boa tarde' if hora < 18 else 'Boa noite'}, {TRATAMENTO}."
+    saudacao = (f"{'Bom dia' if hora < 12 else 'Boa tarde' if hora < 18 else 'Boa noite'}, {TRATAMENTO}. "
+                "Todos os sistemas operacionais.")
     # os dados (clima e notícias podem ir à internet) são juntados na thread do Claude: a saudação
     # não espera por eles. Antes, com o cache vencido, a busca vinha antes do "Bom dia"
     montar = lambda: PEDIDO_BOM_DIA.format(saudacao=saudacao, dados=briefing.dados())
@@ -1508,7 +1512,8 @@ def main():
             falar.tocar(fala)  # a notificação quem manda é o atualiza.sh
             return 0
         else:  # "Jarvis" sozinho
-            fala = escrito = uma(f"Pois não, {TRATAMENTO}?", "Às ordens.", f"Diga, {TRATAMENTO}.", "Estou ouvindo.")
+            fala = escrito = uma(f"Pois não, {TRATAMENTO}?", "Às ordens.", f"Diga, {TRATAMENTO}.", "Estou ouvindo.",
+                                 "Às ordens, chefe.", f"Sistemas online, {TRATAMENTO}.")
         if mostrar:
             print(f"comando {valor}\n  falado: {falar.pronunciar(fala)}\n  escrito:\n    " + escrito.replace("\n", "\n    "))
             return 0
