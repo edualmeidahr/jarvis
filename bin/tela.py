@@ -33,7 +33,8 @@ PORTA = int(os.environ.get("JARVIS_TELA_PORTA", "8765"))
 ENDERECO = f"http://127.0.0.1:{PORTA}/"
 BRIEFING_VELHO_S = 1200
 NIVEL_VOZ = os.path.join(JV, "voz-nivel.json")  # falar.py: a curva de volume da frase que toca
-NIVEL_MIC = os.path.join(JV, "mic-nivel.json")  # escuta.py: o volume do microfone enquanto ouve
+NIVEL_MIC = os.path.join(JV, "mic-nivel.json")
+PALCO = os.path.join(JV, "palco")  # jarvis.py: existe enquanto o bom dia fala  # escuta.py: o volume do microfone enquanto ouve
 
 
 def ler_json(caminho, padrao=None):
@@ -180,6 +181,9 @@ def dados():
         "estado": e.get("estado", "parado"), "detalhe": e.get("detalhe", ""),
         "escuta": escuta.get() == "active",
         "clima": c.get("clima"), "noticias": c.get("noticias") or [], "melhorias": c.get("melhorias"),
+        "ontem": c.get("ontem"), "futebol": c.get("futebol") or "",
+        # o bom dia está falando: a tela vira apresentação (um assunto grande por vez)
+        "palco": os.path.exists(PALCO) and time.time() - os.path.getmtime(PALCO) < 600,
         "mrs": c.get("mrs") or [], "reviews": c.get("reviews") or [], "tarefas": c.get("tarefas") or [],
         "reunioes": reunioes(), "dia": reunioes_do_dia(), "tocando": tocando.get(), "musica": musica.get(),
         "lembretes": [l for l in lembretes.get().splitlines() if l and not l.startswith("nenhum")],

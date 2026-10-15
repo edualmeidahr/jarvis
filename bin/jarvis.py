@@ -972,7 +972,8 @@ def perguntar_ao_claude(pergunta, pagina=None):
 # ---------------------------------------------------------------- bom dia
 
 BOM_DIA_FEITO = os.path.expanduser("~/.claude/cache/bom-dia-{dia}")
-BOM_DIA_RESTO = os.path.join(JV, "bom-dia-resto.json")  # o que faltou falar quando você interrompeu
+BOM_DIA_RESTO = os.path.join(JV, "bom-dia-resto.json")
+PALCO = os.path.join(JV, "palco")  # existe enquanto o bom dia fala: a tela troca o painel pela apresentação  # o que faltou falar quando você interrompeu
 PEDIDO_BOM_DIA_RAPIDO = """Faça um BOM DIA RÁPIDO, no seu jeito de J.A.R.V.I.S., a partir dos DADOS abaixo.
 A saudação ("{saudacao}") JÁ FOI DITA. No máximo 4 frases curtas, nesta ordem: o clima numa frase
 (temperatura e chuva); a próxima reunião de hoje; o que pede ação dele hoje (GitLab e tarefas), numa frase.
@@ -1168,6 +1169,8 @@ def dar_bom_dia(texto, rapido=False):
 
     _falando["trilha"] = bool(MUSICA_BOM_DIA) and not rapido
     ditas = []
+    os.makedirs(JV, exist_ok=True)
+    open(PALCO, "w").close()
     try:
         tocar_fluxo(frases(), ao_falar=ditas.append)
         if not faladas:  # sem cérebro: o jeito antigo, ou só os dados, sem estilo
@@ -1177,6 +1180,10 @@ def dar_bom_dia(texto, rapido=False):
             falar.tocar(corpo)
     finally:
         _falando["trilha"] = False
+        try:
+            os.remove(PALCO)
+        except OSError:
+            pass
         if musica_:
             musica_.acabar()
     if interrompido() and faladas:

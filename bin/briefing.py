@@ -269,6 +269,7 @@ def dados():
         f"SUGESTÕES DE MÚSICA (o que ele mais pede): {'; '.join(sugestoes()) or 'nenhuma ainda'}",
     ]
     cartoes = {"gerado_em": time.time(), "clima": c, "agenda_hoje": agenda(hoje), "noticias": ns,
+               "ontem": {"dia": nota_ontem[0], "texto": nota_ontem[1]} if nota_ontem else None, "futebol": jogo,
                "melhorias": qtd, "mrs": mrs, "reviews": revs, "tarefas": abertas}
     os.makedirs(os.path.dirname(CARTOES), exist_ok=True)
     json.dump(cartoes, open(CARTOES, "w"), ensure_ascii=False)
