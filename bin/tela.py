@@ -16,6 +16,7 @@ import http.server
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -207,8 +208,24 @@ class Pedido(http.server.BaseHTTPRequestHandler):
         pass  # meio segundo por pedido: o log seria só ruído
 
 
+def monitor_maior():
+    """(x, y) do maior monitor ligado: com o notebook e um monitor externo, a tela abre no externo
+    (no notebook, 768 px de altura, cabe menos)."""
+    try:
+        saida = subprocess.run(["xrandr", "--query"], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    monitores = [tuple(map(int, m)) for m in re.findall(r" connected (?:primary )?(\d+)x(\d+)\+(\d+)\+(\d+)", saida)]
+    if not monitores:
+        return None
+    w, h, x, y = max(monitores, key=lambda m: m[0] * m[1])
+    return x, y
+
+
 def abrir():
-    subprocess.Popen(["google-chrome", f"--app={ENDERECO}", "--start-fullscreen"], stdout=subprocess.DEVNULL,
+    pos = monitor_maior()
+    onde = [f"--window-position={pos[0]},{pos[1]}"] if pos else []
+    subprocess.Popen(["google-chrome", f"--app={ENDERECO}", *onde, "--start-fullscreen"], stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL, start_new_session=True)
 
 
